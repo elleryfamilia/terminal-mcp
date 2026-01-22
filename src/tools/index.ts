@@ -9,9 +9,8 @@ import { typeTool, handleType } from "./type.js";
 import { sendKeyTool, handleSendKey } from "./sendKey.js";
 import { getContentTool, handleGetContent } from "./getContent.js";
 import { screenshotTool, handleScreenshot } from "./screenshot.js";
-import { clearTool, handleClear } from "./clear.js";
 
-const tools = [typeTool, sendKeyTool, getContentTool, screenshotTool, clearTool];
+const tools = [typeTool, sendKeyTool, getContentTool, screenshotTool];
 
 export function registerTools(server: Server, manager: TerminalManager): void {
   // Register list tools handler
@@ -36,9 +35,6 @@ export function registerTools(server: Server, manager: TerminalManager): void {
 
         case "takeScreenshot":
           return handleScreenshot(manager, args);
-
-        case "clear":
-          return handleClear(manager, args);
 
         default:
           throw new Error(`Unknown tool: ${name}`);

@@ -12,7 +12,7 @@ const availableKeys = getAvailableKeys();
 
 export const sendKeyTool = {
   name: "sendKey",
-  description: `Send a special key or key combination to the terminal. Available keys: ${availableKeys.slice(0, 10).join(", ")}... and more including Ctrl combinations.`,
+  description: "Send a special key or key combination to the terminal. Common keys: Enter, Tab, Escape, Backspace, Delete, ArrowUp/Down/Left/Right, Home, End, PageUp, PageDown. Control sequences: Ctrl+C (interrupt), Ctrl+D (EOF), Ctrl+Z (suspend), Ctrl+L (clear screen), Ctrl+A (line start), Ctrl+E (line end), Ctrl+U (clear line). Function keys: F1-F12.",
   inputSchema: {
     type: "object" as const,
     properties: {

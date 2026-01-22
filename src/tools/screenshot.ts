@@ -7,7 +7,7 @@ export type ScreenshotArgs = z.infer<typeof screenshotSchema>;
 
 export const screenshotTool = {
   name: "takeScreenshot",
-  description: "Capture the current terminal state including visible content, cursor position, and terminal dimensions.",
+  description: "Capture terminal state as structured JSON with: content (visible text), cursor {x, y} position, and dimensions {cols, rows}. Use when you need cursor position (e.g., for interactive apps, vim) or terminal dimensions. For simple command output, prefer getContent().",
   inputSchema: {
     type: "object" as const,
     properties: {},

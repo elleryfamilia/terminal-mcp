@@ -13,7 +13,7 @@ export type GetContentArgs = z.infer<typeof getContentSchema>;
 
 export const getContentTool = {
   name: "getContent",
-  description: "Get the terminal buffer content as plain text. Can return either the full buffer (including scrollback) or just the visible viewport.",
+  description: "Get terminal content as plain text. Use after sending commands to see output. Returns full scrollback buffer by default (up to 1000 lines). Set visibleOnly=true for just the current viewport. Prefer this over takeScreenshot for reading command output.",
   inputSchema: {
     type: "object" as const,
     properties: {

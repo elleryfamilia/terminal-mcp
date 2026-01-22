@@ -9,7 +9,7 @@ export type TypeArgs = z.infer<typeof typeSchema>;
 
 export const typeTool = {
   name: "type",
-  description: "Send text input to the terminal. The text is written directly to the terminal as if typed by a user.",
+  description: "Send text input to the terminal. Text is written exactly as provided - no Enter key is sent automatically. To execute a command, use type() followed by sendKey('Enter'). Example workflow: type('ls -la') → sendKey('Enter') → getContent()",
   inputSchema: {
     type: "object" as const,
     properties: {

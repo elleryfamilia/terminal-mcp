@@ -1,6 +1,12 @@
 import * as pty from "node-pty";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import xtermHeadless from "@xterm/headless";
 const { Terminal } = xtermHeadless;
+
+// Custom prompt indicator for terminal-mcp
+const PROMPT_INDICATOR = "⚡";
 
 export interface TerminalSessionOptions {
   cols?: number;
@@ -30,6 +36,62 @@ export class TerminalSession {
   private ptyProcess: pty.IPty;
   private terminal: InstanceType<typeof Terminal>;
   private disposed = false;
+  private dataListeners: Array<(data: string) => void> = [];
+  private exitListeners: Array<(code: number) => void> = [];
+
+  private rcFile: string | null = null;
+  private zdotdir: string | null = null;
+
+  /**
+   * Set up shell-specific prompt customization
+   * Returns args to pass to shell and env modifications
+   */
+  private setupShellPrompt(
+    shellName: string,
+    extraEnv?: Record<string, string>
+  ): { args: string[]; env: Record<string, string> } {
+    const env: Record<string, string> = {
+      TERMINAL_MCP: "1",
+      ...extraEnv,
+    };
+
+    if (shellName === "bash" || shellName === "sh") {
+      // Create temp rcfile that sources user's .bashrc then sets our prompt
+      const homeDir = os.homedir();
+      const bashrcContent = `
+# Source user's bashrc if it exists
+[ -f "${homeDir}/.bashrc" ] && source "${homeDir}/.bashrc"
+# Set terminal-mcp prompt
+PS1="${PROMPT_INDICATOR} \\$ "
+`;
+      this.rcFile = path.join(os.tmpdir(), `terminal-mcp-bashrc-${process.pid}`);
+      fs.writeFileSync(this.rcFile, bashrcContent);
+      return { args: ["--rcfile", this.rcFile], env };
+    }
+
+    if (shellName === "zsh") {
+      // Create temp ZDOTDIR with .zshrc that sources user's config then sets prompt
+      const homeDir = os.homedir();
+      this.zdotdir = path.join(os.tmpdir(), `terminal-mcp-zsh-${process.pid}`);
+      fs.mkdirSync(this.zdotdir, { recursive: true });
+
+      const zshrcContent = `
+# Reset ZDOTDIR so nested zsh uses normal config
+export ZDOTDIR="${homeDir}"
+# Source user's zshrc if it exists
+[ -f "${homeDir}/.zshrc" ] && source "${homeDir}/.zshrc"
+# Set terminal-mcp prompt
+PROMPT="${PROMPT_INDICATOR} %# "
+`;
+      fs.writeFileSync(path.join(this.zdotdir, ".zshrc"), zshrcContent);
+      env.ZDOTDIR = this.zdotdir;
+      return { args: [], env };
+    }
+
+    // For other shells, just set env vars and hope for the best
+    env.PS1 = `${PROMPT_INDICATOR} $ `;
+    return { args: [], env };
+  }
 
   constructor(options: TerminalSessionOptions = {}) {
     const cols = options.cols ?? 120;
@@ -44,25 +106,50 @@ export class TerminalSession {
       allowProposedApi: true,
     });
 
+    // Determine shell type and set up custom prompt
+    const shellName = path.basename(shell);
+    const { args, env } = this.setupShellPrompt(shellName, options.env);
+
     // Spawn PTY process
-    this.ptyProcess = pty.spawn(shell, [], {
+    this.ptyProcess = pty.spawn(shell, args, {
       name: "xterm-256color",
       cols,
       rows,
       cwd: options.cwd ?? process.cwd(),
-      env: { ...process.env, ...options.env } as Record<string, string>,
+      env: { ...process.env, ...env } as Record<string, string>,
     });
 
-    // Pipe PTY output to terminal emulator
+    // Pipe PTY output to terminal emulator and listeners
     this.ptyProcess.onData((data) => {
       if (!this.disposed) {
         this.terminal.write(data);
+        // Notify all data listeners
+        for (const listener of this.dataListeners) {
+          listener(data);
+        }
       }
     });
 
-    this.ptyProcess.onExit(() => {
+    this.ptyProcess.onExit(({ exitCode }) => {
       this.disposed = true;
+      for (const listener of this.exitListeners) {
+        listener(exitCode);
+      }
     });
+  }
+
+  /**
+   * Subscribe to PTY output data
+   */
+  onData(listener: (data: string) => void): void {
+    this.dataListeners.push(listener);
+  }
+
+  /**
+   * Subscribe to PTY exit
+   */
+  onExit(listener: (code: number) => void): void {
+    this.exitListeners.push(listener);
   }
 
   /**
@@ -193,6 +280,22 @@ export class TerminalSession {
       this.disposed = true;
       this.ptyProcess.kill();
       this.terminal.dispose();
+
+      // Clean up temp rc files
+      if (this.rcFile) {
+        try {
+          fs.unlinkSync(this.rcFile);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      if (this.zdotdir) {
+        try {
+          fs.rmSync(this.zdotdir, { recursive: true });
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
     }
   }
 }
