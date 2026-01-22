@@ -2,6 +2,18 @@
 
 A headless terminal emulator exposed via MCP (Model Context Protocol), enabling AI assistants like Claude Code to interact with terminal applications programmatically.
 
+## Quick Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/elleryfamilia/terminal-mcp/main/install.sh | bash
+```
+
+Or with npm:
+
+```bash
+npm install -g terminal-mcp
+```
+
 ## Features
 
 - **Full Terminal Emulation**: Uses xterm.js headless for accurate VT100/ANSI emulation

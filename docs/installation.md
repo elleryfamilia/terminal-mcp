@@ -56,7 +56,7 @@ Or install Visual Studio Build Tools manually from [visualstudio.microsoft.com](
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/terminal-mcp.git
+git clone https://github.com/elleryfamilia/terminal-mcp.git
 cd terminal-mcp
 ```
 

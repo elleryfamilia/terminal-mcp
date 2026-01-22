@@ -2,6 +2,15 @@
   "name": "terminal-mcp",
   "version": "0.1.0",
   "description": "A headless terminal emulator exposed via MCP for AI assistants",
+  "author": "Ellery Familia",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elleryfamilia/terminal-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/elleryfamilia/terminal-mcp/issues"
+  },
+  "homepage": "https://github.com/elleryfamilia/terminal-mcp#readme",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

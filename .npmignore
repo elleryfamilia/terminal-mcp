@@ -1,0 +1,8 @@
+src/
+docs/
+*.md
+!README.md
+.github/
+.gitattributes
+install.sh
+CLAUDE.md
