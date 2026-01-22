@@ -119,7 +119,7 @@ main() {
     echo "  terminal-mcp              # Run the MCP server"
     echo "  terminal-mcp --help       # Show help"
     echo ""
-    echo "Claude Code configuration:"
+    echo "MCP client configuration:"
     echo '  {'
     echo '    "mcpServers": {'
     echo '      "terminal": {'
