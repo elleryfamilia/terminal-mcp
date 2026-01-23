@@ -3,7 +3,11 @@
 </p>
 
 <p align="center">
-  A headless terminal emulator exposed via MCP (Model Context Protocol), enabling AI assistants to interact with terminal applications programmatically.
+  <strong>Let AI see and interact with your terminal.</strong>
+</p>
+
+<p align="center">
+  Terminal MCP gives LLMs a shared view of your terminal session. Perfect for debugging CLIs and TUI applications in real-time, or letting AI drive terminal-based tools autonomously.
 </p>
 
 ## Quick Install
