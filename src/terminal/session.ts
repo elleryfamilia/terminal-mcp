@@ -1,9 +1,10 @@
-import * as pty from "node-pty";
+import * as pty from "node-pty-prebuilt-multiarch";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import xtermHeadless from "@xterm/headless";
 const { Terminal } = xtermHeadless;
+import { getDefaultShell } from "../utils/platform.js";
 
 // Custom prompt indicator for terminal-mcp
 const PROMPT_INDICATOR = "⚡";
@@ -88,6 +89,23 @@ PROMPT="${PROMPT_INDICATOR} %# "
       return { args: [], env };
     }
 
+    // PowerShell (pwsh is PowerShell Core, powershell is Windows PowerShell)
+    if (
+      shellName === "powershell" ||
+      shellName === "powershell.exe" ||
+      shellName === "pwsh" ||
+      shellName === "pwsh.exe"
+    ) {
+      env.TERMINAL_MCP_PROMPT = "1";
+      return { args: ["-NoLogo"], env };
+    }
+
+    // Windows cmd.exe
+    if (shellName === "cmd" || shellName === "cmd.exe") {
+      env.PROMPT = `${PROMPT_INDICATOR} $P$G`;
+      return { args: [], env };
+    }
+
     // For other shells, just set env vars and hope for the best
     env.PS1 = `${PROMPT_INDICATOR} $ `;
     return { args: [], env };
@@ -96,7 +114,7 @@ PROMPT="${PROMPT_INDICATOR} %# "
   constructor(options: TerminalSessionOptions = {}) {
     const cols = options.cols ?? 120;
     const rows = options.rows ?? 40;
-    const shell = options.shell ?? process.env.SHELL ?? "bash";
+    const shell = options.shell ?? getDefaultShell();
 
     // Create headless terminal emulator
     this.terminal = new Terminal({

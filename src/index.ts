@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 
 import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
 import { startServer } from "./server.js";
 import { startMcpClientMode } from "./client.js";
 import { TerminalManager } from "./terminal/index.js";
 import { createToolProxyServer } from "./transport/index.js";
 import { printBanner, printInfo, isInfoCommand } from "./ui/index.js";
 import { getStats, resetStats } from "./utils/stats.js";
+import { getDefaultSocketPath, getDefaultShell } from "./utils/platform.js";
 
 // Default socket path
-const DEFAULT_SOCKET_PATH = path.join(os.tmpdir(), "terminal-mcp.sock");
+const DEFAULT_SOCKET_PATH = getDefaultSocketPath();
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -108,7 +107,7 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
   // Get terminal size from environment or use defaults
   const cols = options.cols ?? (process.stdout.columns || 120);
   const rows = options.rows ?? (process.stdout.rows || 40);
-  const shell = options.shell || process.env.SHELL || "/bin/bash";
+  const shell = options.shell || getDefaultShell();
 
   // Print startup banner
   printBanner({ socketPath, cols, rows, shell });

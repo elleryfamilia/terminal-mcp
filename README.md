@@ -181,7 +181,7 @@ See the [docs](./docs/) folder for detailed documentation:
 ## Requirements
 
 - Node.js 18.0.0 or later
-- Build tools for native module compilation (node-pty)
+- Windows 10 version 1809 or later (for ConPTY support)
 
 ## License
 

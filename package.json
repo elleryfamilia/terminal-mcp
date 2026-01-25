@@ -1,6 +1,6 @@
 {
   "name": "@ellery/terminal-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A headless terminal emulator exposed via MCP for AI assistants",
   "author": "Ellery Familia",
   "repository": {
@@ -24,7 +24,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@xterm/headless": "^5.3.0",
-    "node-pty": "^0.10.1",
+    "node-pty-prebuilt-multiarch": "^0.10.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
