@@ -40,6 +40,7 @@ export class TerminalSession {
   private disposed = false;
   private dataListeners: Array<(data: string) => void> = [];
   private exitListeners: Array<(code: number) => void> = [];
+  private resizeListeners: Array<(cols: number, rows: number) => void> = [];
 
   private rcFile: string | null = null;
   private zdotdir: string | null = null;
@@ -185,6 +186,13 @@ ${bannerCmd}
   }
 
   /**
+   * Subscribe to terminal resize events
+   */
+  onResize(listener: (cols: number, rows: number) => void): void {
+    this.resizeListeners.push(listener);
+  }
+
+  /**
    * Write data to the terminal (simulates typing)
    */
   write(data: string): void {
@@ -285,6 +293,11 @@ ${bannerCmd}
     }
     this.terminal.resize(cols, rows);
     this.ptyProcess.resize(cols, rows);
+
+    // Notify all resize listeners
+    for (const listener of this.resizeListeners) {
+      listener(cols, rows);
+    }
   }
 
   /**

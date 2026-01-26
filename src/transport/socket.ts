@@ -10,6 +10,8 @@ import { handleType } from "../tools/type.js";
 import { handleSendKey } from "../tools/sendKey.js";
 import { handleGetContent } from "../tools/getContent.js";
 import { handleScreenshot } from "../tools/screenshot.js";
+import { handleStartRecording } from "../tools/startRecording.js";
+import { handleStopRecording } from "../tools/stopRecording.js";
 
 interface SocketRequest {
   id: number;
@@ -199,6 +201,16 @@ async function handleToolRequest(
       case "takeScreenshot":
         stats.recordToolCall("takeScreenshot");
         result = handleScreenshot(manager, params);
+        break;
+
+      case "startRecording":
+        stats.recordToolCall("startRecording");
+        result = handleStartRecording(manager, params);
+        break;
+
+      case "stopRecording":
+        stats.recordToolCall("stopRecording");
+        result = await handleStopRecording(manager, params);
         break;
 
       default:

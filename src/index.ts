@@ -11,6 +11,9 @@ import { getDefaultSocketPath, getDefaultShell } from "./utils/platform.js";
 // Default socket path
 const DEFAULT_SOCKET_PATH = getDefaultSocketPath();
 
+// Recording mode type
+type RecordingMode = 'always' | 'on-failure' | 'off';
+
 // Parse command line arguments
 const args = process.argv.slice(2);
 const options: {
@@ -18,6 +21,9 @@ const options: {
   rows?: number;
   shell?: string;
   socket?: string;
+  record?: RecordingMode;
+  recordDir?: string;
+  recordFormat?: 'v2';
 } = {};
 
 for (let i = 0; i < args.length; i++) {
@@ -49,6 +55,24 @@ for (let i = 0; i < args.length; i++) {
         i++;
       }
       break;
+    case "--record":
+      if (next && ['always', 'on-failure', 'off'].includes(next)) {
+        options.record = next as RecordingMode;
+        i++;
+      }
+      break;
+    case "--record-dir":
+      if (next) {
+        options.recordDir = next;
+        i++;
+      }
+      break;
+    case "--record-format":
+      if (next) {
+        options.recordFormat = next as 'v2';
+        i++;
+      }
+      break;
     case "--help":
     case "-h":
       console.log(`
@@ -63,6 +87,14 @@ Options:
   --socket <path>     Unix socket path for MCP (default: ${DEFAULT_SOCKET_PATH})
   --help, -h          Show this help message
 
+Recording Options:
+  --record <mode>     Recording mode: always, on-failure, off (default: off)
+                      - always: Save all recordings
+                      - on-failure: Only save recordings on non-zero exit
+                      - off: Disable recording
+  --record-dir <dir>  Directory to save recordings (default: current directory)
+  --record-format <f> Recording format: v2 (default: v2, asciicast v2 format)
+
 Mode Detection:
   - If stdin is a TTY: Interactive mode (gives you a shell, exposes socket)
   - If stdin is not a TTY: MCP client mode (connects to socket, serves MCP)
@@ -71,6 +103,9 @@ Interactive Mode (run in your terminal):
   terminal-mcp
 
   This gives you an interactive shell. AI can observe/interact via MCP.
+
+  With recording:
+  terminal-mcp --record=always --record-dir=./recordings
 
 MCP Client Mode (add to your MCP client config):
   {
@@ -113,6 +148,9 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
     rows,
     shell: options.shell,
     startupBanner,
+    record: options.record,
+    recordDir: options.recordDir,
+    recordFormat: options.recordFormat,
   });
 
   // Get the session and set up interactive I/O
