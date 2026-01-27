@@ -5,6 +5,7 @@ import * as path from "path";
 import xtermHeadless from "@xterm/headless";
 const { Terminal } = xtermHeadless;
 import { getDefaultShell } from "../utils/platform.js";
+import type { SandboxController } from "../sandbox/index.js";
 
 // Custom prompt indicator for terminal-mcp
 const PROMPT_INDICATOR = "⚡";
@@ -16,6 +17,7 @@ export interface TerminalSessionOptions {
   cwd?: string;
   env?: Record<string, string>;
   startupBanner?: string;
+  sandboxController?: SandboxController;
 }
 
 export interface ScreenshotResult {
@@ -35,14 +37,29 @@ export interface ScreenshotResult {
  * for full terminal emulation
  */
 export class TerminalSession {
-  private ptyProcess: pty.IPty;
-  private terminal: InstanceType<typeof Terminal>;
+  private ptyProcess!: pty.IPty;
+  private terminal!: InstanceType<typeof Terminal>;
   private disposed = false;
   private dataListeners: Array<(data: string) => void> = [];
   private exitListeners: Array<(code: number) => void> = [];
 
   private rcFile: string | null = null;
   private zdotdir: string | null = null;
+
+  /**
+   * Private constructor - use TerminalSession.create() instead
+   */
+  private constructor() {}
+
+  /**
+   * Factory method to create a TerminalSession
+   * Use this instead of the constructor to support async sandbox initialization
+   */
+  static async create(options: TerminalSessionOptions = {}): Promise<TerminalSession> {
+    const session = new TerminalSession();
+    await session.initialize(options);
+    return session;
+  }
 
   /**
    * Set up shell-specific prompt customization
@@ -125,7 +142,11 @@ ${bannerCmd}
     return { args: [], env };
   }
 
-  constructor(options: TerminalSessionOptions = {}) {
+  /**
+   * Initialize the terminal session
+   * This is called by the create() factory method
+   */
+  private async initialize(options: TerminalSessionOptions): Promise<void> {
     const cols = options.cols ?? 120;
     const rows = options.rows ?? 40;
     const shell = options.shell ?? getDefaultShell();
@@ -142,8 +163,18 @@ ${bannerCmd}
     const shellName = path.basename(shell);
     const { args, env } = this.setupShellPrompt(shellName, options.env, options.startupBanner);
 
+    // Determine spawn command - may be wrapped by sandbox
+    let spawnCmd = shell;
+    let spawnArgs = args;
+
+    if (options.sandboxController?.isActive()) {
+      const wrapped = await options.sandboxController.wrapShellCommand(shell, args);
+      spawnCmd = wrapped.cmd;
+      spawnArgs = wrapped.args;
+    }
+
     // Spawn PTY process
-    this.ptyProcess = pty.spawn(shell, args, {
+    this.ptyProcess = pty.spawn(spawnCmd, spawnArgs, {
       name: "xterm-256color",
       cols,
       rows,

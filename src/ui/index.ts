@@ -8,6 +8,8 @@ const PINK_COLOR = "\x1b[38;2;255;105;180m";
 const YELLOW_COLOR = "\x1b[38;2;255;255;0m";
 // White for text content
 const WHITE_COLOR = "\x1b[38;2;255;255;255m";
+// Green for sandbox indicator (RGB: 50, 205, 50 - lime green)
+const GREEN_COLOR = "\x1b[38;2;50;205;50m";
 const RESET = "\x1b[0m";
 
 // ANSI Shadow style figlet logo for "TERMINAL" + "MCP" stacked
@@ -31,6 +33,7 @@ export interface BannerOptions {
   cols: number;
   rows: number;
   shell: string;
+  sandboxEnabled?: boolean;
 }
 
 /**
@@ -62,13 +65,18 @@ export function getBanner(options: BannerOptions): string {
   }
 }`;
 
+  // Build sandbox status line if enabled
+  const sandboxLine = options.sandboxEnabled
+    ? `${YELLOW_COLOR}│${WHITE_COLOR}  Sandbox: ${GREEN_COLOR}ENABLED${WHITE_COLOR} (restricted filesystem/network)${" ".repeat(boxWidth - 47)}${YELLOW_COLOR}│\n`
+    : "";
+
   return `
 ${YELLOW_COLOR}╭${horizontalLine}╮
 ${centeredLogo.join("\n")}
 ${YELLOW_COLOR}├${horizontalLine}┤
 ${YELLOW_COLOR}│${WHITE_COLOR}  Socket: ${padRight(options.socketPath, boxWidth - 11)}${YELLOW_COLOR}│
 ${YELLOW_COLOR}│${WHITE_COLOR}  Terminal: ${padRight(`${options.cols}x${options.rows}`, 12)}Shell: ${padRight(options.shell, boxWidth - 30)}${YELLOW_COLOR}│
-${YELLOW_COLOR}│${WHITE_COLOR}  Tools: type, sendKey, getContent, takeScreenshot, clear${" ".repeat(boxWidth - 58)}${YELLOW_COLOR}│
+${sandboxLine}${YELLOW_COLOR}│${WHITE_COLOR}  Tools: type, sendKey, getContent, takeScreenshot, clear${" ".repeat(boxWidth - 58)}${YELLOW_COLOR}│
 ${YELLOW_COLOR}│${WHITE_COLOR}${" ".repeat(boxWidth - 7)}v${VERSION} ${YELLOW_COLOR}│
 ${YELLOW_COLOR}╰${horizontalLine}╯${RESET}
 

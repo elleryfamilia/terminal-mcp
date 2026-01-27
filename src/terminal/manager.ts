@@ -1,4 +1,12 @@
 import { TerminalSession, TerminalSessionOptions, ScreenshotResult } from "./session.js";
+import type { SandboxController } from "../sandbox/index.js";
+
+/**
+ * Options for creating a TerminalManager
+ */
+export interface TerminalManagerOptions extends TerminalSessionOptions {
+  sandboxController?: SandboxController;
+}
 
 /**
  * Manages the terminal session lifecycle
@@ -6,20 +14,72 @@ import { TerminalSession, TerminalSessionOptions, ScreenshotResult } from "./ses
  */
 export class TerminalManager {
   private session: TerminalSession | null = null;
-  private options: TerminalSessionOptions;
+  private sessionPromise: Promise<TerminalSession> | null = null;
+  private options: TerminalManagerOptions;
+  private sandboxController?: SandboxController;
 
-  constructor(options: TerminalSessionOptions = {}) {
+  constructor(options: TerminalManagerOptions = {}) {
     this.options = options;
+    this.sandboxController = options.sandboxController;
   }
 
   /**
-   * Get or create the terminal session
+   * Get or create the terminal session (async)
+   */
+  async getSessionAsync(): Promise<TerminalSession> {
+    if (this.session && this.session.isActive()) {
+      return this.session;
+    }
+
+    // If there's already a creation in progress, wait for it
+    if (this.sessionPromise) {
+      return this.sessionPromise;
+    }
+
+    // Create new session
+    this.sessionPromise = TerminalSession.create({
+      ...this.options,
+      sandboxController: this.sandboxController,
+    });
+
+    try {
+      this.session = await this.sessionPromise;
+      return this.session;
+    } finally {
+      this.sessionPromise = null;
+    }
+  }
+
+  /**
+   * Get the current session if it exists and is active
+   * Returns null if no session exists yet
+   */
+  getCurrentSession(): TerminalSession | null {
+    if (this.session && this.session.isActive()) {
+      return this.session;
+    }
+    return null;
+  }
+
+  /**
+   * @deprecated Use getSessionAsync() instead. This method exists for backwards compatibility
+   * but will throw if the session hasn't been created yet.
    */
   getSession(): TerminalSession {
     if (!this.session || !this.session.isActive()) {
-      this.session = new TerminalSession(this.options);
+      throw new Error(
+        "Session not initialized. Use getSessionAsync() or call initSession() first."
+      );
     }
     return this.session;
+  }
+
+  /**
+   * Initialize the session eagerly
+   * Call this at startup to create the session before it's needed
+   */
+  async initSession(): Promise<TerminalSession> {
+    return this.getSessionAsync();
   }
 
   /**
@@ -79,12 +139,29 @@ export class TerminalManager {
   }
 
   /**
-   * Dispose of the current session
+   * Dispose of the current session and cleanup sandbox
    */
   dispose(): void {
     if (this.session) {
       this.session.dispose();
       this.session = null;
     }
+  }
+
+  /**
+   * Async dispose that also cleans up sandbox resources
+   */
+  async disposeAsync(): Promise<void> {
+    this.dispose();
+    if (this.sandboxController) {
+      await this.sandboxController.cleanup();
+    }
+  }
+
+  /**
+   * Get the sandbox controller if one is configured
+   */
+  getSandboxController(): SandboxController | undefined {
+    return this.sandboxController;
   }
 }
