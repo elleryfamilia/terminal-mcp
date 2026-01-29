@@ -424,7 +424,7 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
 
   return (
     <div className="mode-modal-overlay">
-      <div className="tui-mode-dialog">
+      <div className="tui-mode-dialog" tabIndex={-1}>
         <div className="tui-mode-content">
           <button
             ref={el => itemRefs.current.set('mode-0', el)}

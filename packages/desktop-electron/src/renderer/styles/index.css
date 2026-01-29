@@ -347,26 +347,44 @@ body,
 
 /* Title Bar (macOS) - Unified with tabs */
 .title-bar {
-  height: 42px;
+  height: 34px;
   background-color: #1e1e1e;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   position: relative;
   flex-shrink: 0;
+  -webkit-app-region: drag;
+}
+
+/* When multiple tabs are present, add the drag strip */
+.title-bar.title-bar-with-tabs {
+  height: 65px;  /* 31px drag strip + 34px tab row */
+}
+
+/* Dedicated drag strip - contains traffic lights, visible when multiple tabs */
+.title-bar-drag-strip {
+  height: 31px;
+  background-color: #252526;  /* Slightly lighter than main bg */
+  border-bottom: 1px solid #1e1e1e;
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Row containing tabs and new tab button */
+.title-bar-row {
+  display: flex;
+  align-items: center;
+  flex: 1;
   padding-right: 12px;
 }
 
 .title-bar-drag-region {
-  -webkit-app-region: drag;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
+  display: none;
 }
 
-/* Spacer for macOS traffic lights - more room */
+/* Spacer for macOS traffic lights */
 .title-bar-spacer {
   width: 80px;
   flex-shrink: 0;
@@ -377,7 +395,6 @@ body,
   display: flex;
   align-items: center;
   flex: 1;
-  -webkit-app-region: no-drag;
   z-index: 1;
   height: 100%;
 }
@@ -389,12 +406,13 @@ body,
   justify-content: center;
   flex: 1;
   height: 100%;
-  background-color: transparent;
+  background-color: rgba(0, 0, 0, 0.2);
   cursor: pointer;
   transition: background-color 0.15s;
   -webkit-app-region: no-drag;
   position: relative;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
 }
 
 .title-tab:last-child {
@@ -402,15 +420,22 @@ body,
 }
 
 .title-tab:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 .title-tab-active {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: #1e1e1e;
+  border-bottom: 1px solid transparent;
+  z-index: 1;
 }
 
 .title-tab-active:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: #1e1e1e;
+}
+
+.title-tab-active .title-tab-icon,
+.title-tab-active .title-tab-text {
+  color: #fff;
 }
 
 /* Tab content - centered icon and text */
@@ -427,18 +452,10 @@ body,
   color: #888;
 }
 
-.title-tab-active .title-tab-icon {
-  color: #d4d4d4;
-}
-
 .title-tab-text {
   font-size: 12px;
   color: #888;
   white-space: nowrap;
-}
-
-.title-tab-active .title-tab-text {
-  color: #d4d4d4;
 }
 
 /* Close button - positioned on left side of tab */
@@ -471,46 +488,17 @@ body,
   color: #d4d4d4;
 }
 
-/* MCP-enabled tab in title bar */
+/* MCP-enabled tab - subtle indicator */
 .title-tab-mcp {
-  background-color: #2ecc71 !important;
+  /* No special background - just the AI icon */
 }
 
-.title-tab-mcp:hover {
-  background-color: #27ae60 !important;
-}
-
-.title-tab-mcp .title-tab-icon {
-  color: #1a1a1a;
-}
-
-.title-tab-mcp .title-tab-text {
-  color: #1a1a1a;
-  font-weight: 500;
-}
-
-.title-tab-mcp .title-tab-close {
-  color: rgba(0, 0, 0, 0.5);
-}
-
-.title-tab-mcp:hover .title-tab-close {
-  opacity: 1;
-}
-
-.title-tab-mcp .title-tab-close:hover {
-  background-color: rgba(0, 0, 0, 0.15);
-  color: #1a1a1a;
-}
-
+/* AI indicator icon */
 .title-tab-ai {
-  font-size: 9px;
-  font-weight: bold;
-  color: #1a1a1a;
-  background-color: rgba(255, 255, 255, 0.9);
-  padding: 2px 5px;
-  border-radius: 3px;
-  letter-spacing: 0.5px;
+  font-size: 12px;
+  color: #b4a7d6;
   margin-left: 4px;
+  opacity: 0.9;
 }
 
 /* Single tab - centered process name */
@@ -536,14 +524,10 @@ body,
 }
 
 .title-bar-single-ai {
-  font-size: 9px;
-  font-weight: bold;
-  color: #1e1e1e;
-  background-color: #2ecc71;
-  padding: 2px 6px;
-  border-radius: 3px;
-  letter-spacing: 0.5px;
-  margin-left: 4px;
+  font-size: 14px;
+  color: #b4a7d6;
+  margin-left: 6px;
+  opacity: 0.9;
 }
 
 /* New tab button in title bar */
@@ -551,14 +535,14 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   border: none;
   background: transparent;
   color: #555;
-  font-size: 22px;
+  font-size: 18px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 4px;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
   z-index: 1;
@@ -579,6 +563,145 @@ body,
 /* Selection colors */
 ::selection {
   background-color: #264f78;
+}
+
+/* ==================== Split Pane Styles ==================== */
+
+/* Split container - holds two panes with a resize handle */
+.split-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.split-container-horizontal {
+  flex-direction: row;
+}
+
+.split-container-vertical {
+  flex-direction: column;
+}
+
+/* Split pane children */
+.split-pane-first,
+.split-pane-second {
+  overflow: hidden;
+  position: relative;
+}
+
+/* Resize handle - draggable divider */
+.resize-handle {
+  background-color: #2d2d2d;
+  flex-shrink: 0;
+  transition: background-color 0.15s;
+}
+
+.resize-handle:hover {
+  background-color: #404040;
+}
+
+.resize-handle-horizontal {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.resize-handle-vertical {
+  height: 4px;
+  cursor: row-resize;
+}
+
+/* Terminal pane - wrapper with header and focus indicator */
+.terminal-pane {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.terminal-pane-focused {
+  border-color: rgba(13, 188, 121, 0.4);
+}
+
+.terminal-pane-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Pane header - small bar with process icon/name */
+.pane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 8px;
+  background-color: #252526;
+  border-bottom: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+
+.pane-header-focused {
+  background-color: #2d2d2d;
+}
+
+.pane-header-icon {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-size: 12px;
+  color: #888;
+}
+
+.pane-header-focused .pane-header-icon {
+  color: #0dbc79;
+}
+
+.pane-header-name {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pane-header-focused .pane-header-name {
+  color: #d4d4d4;
+}
+
+.pane-header-ai {
+  font-size: 10px;
+  color: #b4a7d6;
+  margin-left: auto;
+}
+
+/* Pending Pane - placeholder while mode selector is shown */
+.pending-pane {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: #1e1e1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pending-pane-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  font-size: 12px;
+}
+
+.pending-pane-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #3c3c3c;
+  border-top-color: #666;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 /* MCP Toggle Button in Status Bar */
@@ -747,6 +870,81 @@ body,
   z-index: 2000;
 }
 
+/* Floating modal overlay for pending panes - positioned absolutely */
+.pending-modal-overlay {
+  position: fixed;
+  z-index: 1500;
+}
+
+/* Backdrop overlay that darkens the interface when pending modal is shown */
+.pending-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1499;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Glow effect for pending modal dialog */
+.pending-modal-overlay .tui-mode-dialog {
+  box-shadow:
+    0 0 0 1px rgba(13, 188, 121, 0.3),
+    0 0 20px rgba(13, 188, 121, 0.15),
+    0 0 40px rgba(13, 188, 121, 0.1),
+    0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: modalGlow 0.3s ease-out;
+}
+
+@keyframes modalGlow {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+    box-shadow:
+      0 0 0 1px rgba(13, 188, 121, 0.1),
+      0 0 10px rgba(13, 188, 121, 0.05),
+      0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow:
+      0 0 0 1px rgba(13, 188, 121, 0.3),
+      0 0 20px rgba(13, 188, 121, 0.15),
+      0 0 40px rgba(13, 188, 121, 0.1),
+      0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* When expanding down (default), dialog grows downward from top */
+.pending-modal-overlay.expand-down .tui-mode-dialog {
+  transform-origin: top center;
+}
+
+/* When expanding up, dialog grows upward from bottom */
+.pending-modal-overlay.expand-up .tui-mode-dialog {
+  transform-origin: bottom center;
+}
+
+/* When modal is inside pending-modal-overlay, don't use its own overlay */
+.pending-modal-overlay .mode-modal-overlay {
+  position: static;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .tui-mode-dialog {
   background-color: rgba(30, 30, 30, 0.95);
   border: 1px solid rgba(100, 100, 100, 0.5);
@@ -761,6 +959,7 @@ body,
   color: #d4d4d4;
   transition: all 0.3s ease-in-out;
   overflow: hidden;
+  outline: none;
 }
 
 /* Header removed - keeping selector for potential future use */

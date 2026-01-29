@@ -62,68 +62,75 @@ export function TitleBar({
   const singleTab = tabs.length === 1 ? tabs[0] : null;
 
   return (
-    <div className="title-bar">
-      {/* Drag region for window movement - behind everything */}
-      <div className="title-bar-drag-region" />
+    <div className={`title-bar ${showTabs ? "title-bar-with-tabs" : ""}`}>
+      {/* Dedicated drag bar with traffic lights - only visible when multiple tabs */}
+      {showTabs && (
+        <div className="title-bar-drag-strip">
+          <div className="title-bar-spacer" />
+        </div>
+      )}
 
-      {/* Traffic light spacer on macOS */}
-      <div className="title-bar-spacer" />
+      {/* Row containing tabs and new tab button */}
+      <div className="title-bar-row">
+        {/* Traffic light spacer on macOS - only needed when no drag strip */}
+        {!showTabs && <div className="title-bar-spacer" />}
 
-      {/* Tabs area - full width */}
-      <div className="title-bar-tabs">
-        {showTabs ? (
-          // Multiple tabs - show tab bar
-          tabs.map((tab) => {
-            const hasMcp = tab.sessionId === mcpAttachedSessionId;
-            const icon = getProcessIcon(tab.processName);
-            const displayName = getProcessDisplayName(tab.processName);
+        {/* Tabs area - full width */}
+        <div className="title-bar-tabs">
+          {showTabs ? (
+            // Multiple tabs - show tab bar
+            tabs.map((tab) => {
+              const hasMcp = tab.sessionId === mcpAttachedSessionId;
+              const icon = getProcessIcon(tab.processName);
+              const displayName = getProcessDisplayName(tab.processName);
 
-            return (
-              <div
-                key={tab.id}
-                className={`title-tab ${tab.id === activeTabId ? "title-tab-active" : ""} ${hasMcp ? "title-tab-mcp" : ""}`}
-                onClick={(e) => handleTabClick(tab.id, e)}
-                title={hasMcp ? `${displayName} (AI-controlled)` : displayName}
-              >
-                <button
-                  className="title-tab-close"
-                  onClick={(e) => handleCloseClick(tab.id, e)}
-                  title="Close tab"
+              return (
+                <div
+                  key={tab.id}
+                  className={`title-tab ${tab.id === activeTabId ? "title-tab-active" : ""} ${hasMcp ? "title-tab-mcp" : ""}`}
+                  onClick={(e) => handleTabClick(tab.id, e)}
+                  title={hasMcp ? `${displayName} (AI-controlled)` : displayName}
                 >
-                  ×
-                </button>
-                <span className="title-tab-content">
-                  <span className="title-tab-icon">{icon}</span>
-                  <span className="title-tab-text">{displayName}</span>
-                  {hasMcp && <span className="title-tab-ai">AI</span>}
-                </span>
-              </div>
-            );
-          })
-        ) : singleTab ? (
-          // Single tab - show centered process name
-          <div className="title-bar-single">
-            <span className="title-bar-single-icon">
-              {getProcessIcon(singleTab.processName)}
-            </span>
-            <span className="title-bar-single-name">
-              {getProcessDisplayName(singleTab.processName)}
-            </span>
-            {singleTab.sessionId === mcpAttachedSessionId && (
-              <span className="title-bar-single-ai">AI</span>
-            )}
-          </div>
-        ) : null}
-      </div>
+                  <button
+                    className="title-tab-close"
+                    onClick={(e) => handleCloseClick(tab.id, e)}
+                    title="Close tab"
+                  >
+                    ×
+                  </button>
+                  <span className="title-tab-content">
+                    <span className="title-tab-icon">{icon}</span>
+                    <span className="title-tab-text">{displayName}</span>
+                    {hasMcp && <span className="title-tab-ai" title="Shared with AI">✦</span>}
+                  </span>
+                </div>
+              );
+            })
+          ) : singleTab ? (
+            // Single tab - show centered process name
+            <div className="title-bar-single">
+              <span className="title-bar-single-icon">
+                {getProcessIcon(singleTab.processName)}
+              </span>
+              <span className="title-bar-single-name">
+                {getProcessDisplayName(singleTab.processName)}
+              </span>
+              {singleTab.sessionId === mcpAttachedSessionId && (
+                <span className="title-bar-single-ai" title="Shared with AI">✦</span>
+              )}
+            </div>
+          ) : null}
+        </div>
 
-      {/* New tab button - always visible */}
-      <button
-        className="title-bar-new-tab"
-        onClick={handleNewTabClick}
-        title="New terminal (Cmd+T)"
-      >
-        +
-      </button>
+        {/* New tab button - always visible */}
+        <button
+          className="title-bar-new-tab"
+          onClick={handleNewTabClick}
+          title="New terminal (Cmd+T)"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }

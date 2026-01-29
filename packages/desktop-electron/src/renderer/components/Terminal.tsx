@@ -15,6 +15,8 @@ interface TerminalProps {
   sessionId: string;
   onClose?: () => void;
   isVisible?: boolean;
+  isFocused?: boolean;
+  onFocus?: () => void;
 }
 
 // Terminal theme (VS Code Dark+ inspired)
@@ -42,7 +44,7 @@ const TERMINAL_THEME = {
   brightWhite: "#e5e5e5",
 };
 
-export function Terminal({ sessionId, onClose, isVisible = true }: TerminalProps) {
+export function Terminal({ sessionId, onClose, isVisible = true, isFocused = true, onFocus }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -184,29 +186,60 @@ export function Terminal({ sessionId, onClose, isVisible = true }: TerminalProps
     return cleanup;
   }, [sessionId, handleOutput, handleSessionClose]);
 
-  // Set up window resize listener
+  // Set up container resize observer (for split pane resizing)
   useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    // Also listen for window resize events from Electron
     const cleanup = window.terminalAPI.onWindowResize(handleResize);
 
-    // Also listen to regular resize events
-    window.addEventListener("resize", handleResize);
-
     return () => {
+      resizeObserver.disconnect();
       cleanup();
-      window.removeEventListener("resize", handleResize);
     };
   }, [handleResize]);
 
   // Handle visibility changes (tab switching)
   useEffect(() => {
     if (isVisible && xtermRef.current && fitAddonRef.current) {
-      // Refit and refocus when becoming visible
+      // Refit when becoming visible
       setTimeout(() => {
         fitAddonRef.current?.fit();
-        xtermRef.current?.focus();
       }, 10);
     }
   }, [isVisible]);
+
+  // Handle focus changes (for split panes)
+  useEffect(() => {
+    if (isVisible && isFocused && xtermRef.current) {
+      // Focus the terminal when the pane is focused
+      setTimeout(() => {
+        xtermRef.current?.focus();
+      }, 10);
+    }
+  }, [isVisible, isFocused]);
+
+  // Notify parent when terminal receives focus
+  useEffect(() => {
+    if (!containerRef.current || !onFocus) return;
+
+    const handleContainerFocus = () => {
+      onFocus();
+    };
+
+    // Listen for focus on the container (bubbles up from xterm)
+    containerRef.current.addEventListener("focusin", handleContainerFocus);
+
+    return () => {
+      containerRef.current?.removeEventListener("focusin", handleContainerFocus);
+    };
+  }, [onFocus]);
 
   return (
     <div
