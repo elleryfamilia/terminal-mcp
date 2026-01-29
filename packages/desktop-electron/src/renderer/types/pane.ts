@@ -14,6 +14,21 @@
 export type SplitDirection = "horizontal" | "vertical";
 
 /**
+ * Sandbox configuration stored with terminal pane
+ */
+export interface PaneSandboxConfig {
+  filesystem: {
+    readWrite: string[];
+    readOnly: string[];
+    blocked: string[];
+  };
+  network: {
+    mode: 'all' | 'none' | 'allowlist';
+    allowedDomains?: string[];
+  };
+}
+
+/**
  * A terminal pane - a leaf node in the pane tree
  */
 export interface TerminalPane {
@@ -21,6 +36,8 @@ export interface TerminalPane {
   type: "terminal";
   sessionId: string;
   processName: string; // For pane header display
+  isSandboxed: boolean; // Whether this pane runs in a sandboxed environment
+  sandboxConfig?: PaneSandboxConfig; // Sandbox settings if sandboxed
 }
 
 /**

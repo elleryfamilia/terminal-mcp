@@ -3,6 +3,7 @@
  *
  * Displays session status, MCP connection indicator, and other information
  * at the bottom of the terminal window.
+ * MCP toggle has been moved to pane headers.
  */
 
 import { useEffect, useState } from "react";
@@ -14,7 +15,6 @@ interface StatusBarProps {
   isConnected: boolean;
   mcpAttachedSessionId: string | null;
   activeTabTitle: string | null;
-  onMcpToggle: () => void;
 }
 
 export function StatusBar({
@@ -23,7 +23,6 @@ export function StatusBar({
   isConnected,
   mcpAttachedSessionId,
   activeTabTitle,
-  onMcpToggle,
 }: StatusBarProps) {
   const [mcpStatus, setMcpStatus] = useState<McpStatus | null>(null);
 
@@ -36,9 +35,6 @@ export function StatusBar({
     const cleanup = window.terminalAPI.onMcpStatusChanged(setMcpStatus);
     return cleanup;
   }, []);
-
-  // Check if current session has MCP attached
-  const currentSessionHasMcp = sessionId && sessionId === mcpAttachedSessionId;
 
   return (
     <div className="status-bar">
@@ -55,23 +51,6 @@ export function StatusBar({
             <span className="recording-dot" />
             Recording
           </span>
-        )}
-
-        {/* MCP attachment toggle */}
-        {mcpStatus?.isRunning && (
-          <button
-            className={`mcp-toggle ${currentSessionHasMcp ? "mcp-enabled" : ""}`}
-            onClick={onMcpToggle}
-            title={currentSessionHasMcp
-              ? "Disable MCP on this terminal"
-              : "Enable MCP on this terminal"
-            }
-          >
-            <span className="mcp-toggle-icon">AI</span>
-            <span className="mcp-toggle-label">
-              {currentSessionHasMcp ? "Disable MCP" : "Enable MCP"}
-            </span>
-          </button>
         )}
 
         {/* MCP client connection count */}

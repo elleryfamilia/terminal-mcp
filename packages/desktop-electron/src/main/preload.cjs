@@ -67,4 +67,16 @@ contextBridge.exposeInMainWorld("terminalAPI", {
 
   // Sandbox mode
   setSandboxMode: (config) => ipcRenderer.invoke("terminal:setSandboxMode", config),
+
+  // Recording
+  startRecording: (sessionId) => ipcRenderer.invoke("terminal:startRecording", sessionId),
+  stopRecording: (sessionId) => ipcRenderer.invoke("terminal:stopRecording", sessionId),
+  getRecordingStatus: (sessionId) => ipcRenderer.invoke("terminal:getRecordingStatus", sessionId),
+  onRecordingChanged: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("terminal:recordingChanged", handler);
+    return () => {
+      ipcRenderer.removeListener("terminal:recordingChanged", handler);
+    };
+  },
 });

@@ -6,7 +6,7 @@
  * and SplitContainer for split nodes.
  */
 
-import type { Pane } from "../types/pane";
+import type { Pane, PaneSandboxConfig } from "../types/pane";
 import { isTerminalPane, isPendingPane, isSplitPane } from "../types/pane";
 import { TerminalPane } from "./TerminalPane";
 import { PendingPaneView } from "./PendingPaneView";
@@ -18,6 +18,7 @@ interface PaneContainerProps {
   focusedPaneId: string;
   isTabVisible: boolean;
   mcpAttachedSessionId: string | null;
+  recordingSessionId: string | null;
   isSinglePane: boolean;
   onFocus: (paneId: string) => void;
   onSessionClose: (sessionId: string) => void;
@@ -28,6 +29,9 @@ interface PaneContainerProps {
     config?: SandboxConfig
   ) => void;
   onPendingCancel: (paneId: string) => void;
+  onMcpToggle?: (sessionId: string) => void;
+  onSandboxClick?: (config: PaneSandboxConfig) => void;
+  onRecordingToggle?: (sessionId: string) => void;
 }
 
 export function PaneContainer({
@@ -35,14 +39,20 @@ export function PaneContainer({
   focusedPaneId,
   isTabVisible,
   mcpAttachedSessionId,
+  recordingSessionId,
   isSinglePane,
   onFocus,
   onSessionClose,
   onSplitRatioChange,
   onPendingModeSelected,
   onPendingCancel,
+  onMcpToggle,
+  onSandboxClick,
+  onRecordingToggle,
 }: PaneContainerProps) {
   if (isTerminalPane(pane)) {
+    const hasMcp = pane.sessionId === mcpAttachedSessionId;
+    const isRecording = pane.sessionId === recordingSessionId;
     return (
       <TerminalPane
         paneId={pane.id}
@@ -50,10 +60,16 @@ export function PaneContainer({
         processName={pane.processName}
         isFocused={pane.id === focusedPaneId}
         isVisible={isTabVisible}
-        hasMcp={pane.sessionId === mcpAttachedSessionId}
-        showHeader={!isSinglePane}
+        hasMcp={hasMcp}
+        isSandboxed={pane.isSandboxed}
+        sandboxConfig={pane.sandboxConfig}
+        isRecording={isRecording}
+        showHeader={true}
         onFocus={onFocus}
         onSessionClose={onSessionClose}
+        onMcpToggle={onMcpToggle ? () => onMcpToggle(pane.sessionId) : undefined}
+        onSandboxClick={onSandboxClick && pane.sandboxConfig ? () => onSandboxClick(pane.sandboxConfig!) : undefined}
+        onRecordingToggle={onRecordingToggle ? () => onRecordingToggle(pane.sessionId) : undefined}
       />
     );
   }
@@ -81,12 +97,16 @@ export function PaneContainer({
             focusedPaneId={focusedPaneId}
             isTabVisible={isTabVisible}
             mcpAttachedSessionId={mcpAttachedSessionId}
+            recordingSessionId={recordingSessionId}
             isSinglePane={false}
             onFocus={onFocus}
             onSessionClose={onSessionClose}
             onSplitRatioChange={onSplitRatioChange}
             onPendingModeSelected={onPendingModeSelected}
             onPendingCancel={onPendingCancel}
+            onMcpToggle={onMcpToggle}
+            onSandboxClick={onSandboxClick}
+            onRecordingToggle={onRecordingToggle}
           />
         }
         second={
@@ -95,12 +115,16 @@ export function PaneContainer({
             focusedPaneId={focusedPaneId}
             isTabVisible={isTabVisible}
             mcpAttachedSessionId={mcpAttachedSessionId}
+            recordingSessionId={recordingSessionId}
             isSinglePane={false}
             onFocus={onFocus}
             onSessionClose={onSessionClose}
             onSplitRatioChange={onSplitRatioChange}
             onPendingModeSelected={onPendingModeSelected}
             onPendingCancel={onPendingCancel}
+            onMcpToggle={onMcpToggle}
+            onSandboxClick={onSandboxClick}
+            onRecordingToggle={onRecordingToggle}
           />
         }
       />

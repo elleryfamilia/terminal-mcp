@@ -76,11 +76,30 @@ export interface TerminalAPI {
 
   // Sandbox mode
   setSandboxMode: (config: SandboxConfig) => Promise<void>;
+
+  // Recording
+  startRecording: (
+    sessionId: string
+  ) => Promise<{ success: boolean; recordingId?: string; error?: string }>;
+  stopRecording: (
+    sessionId: string
+  ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+  getRecordingStatus: (
+    sessionId: string
+  ) => Promise<{ isRecording: boolean; recordingId?: string }>;
+  onRecordingChanged: (callback: (data: RecordingChange) => void) => () => void;
 }
 
 export interface McpAttachmentChange {
   attachedSessionId: string | null;
   previousSessionId: string | null;
+}
+
+export interface RecordingChange {
+  sessionId: string;
+  isRecording: boolean;
+  recordingId?: string;
+  filePath?: string;
 }
 
 export interface McpStatus {

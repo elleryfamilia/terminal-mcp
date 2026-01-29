@@ -7,6 +7,7 @@
 import { useCallback } from "react";
 import { Terminal } from "./Terminal";
 import { PaneHeader } from "./PaneHeader";
+import type { PaneSandboxConfig } from "../types/pane";
 
 interface TerminalPaneProps {
   paneId: string;
@@ -15,9 +16,15 @@ interface TerminalPaneProps {
   isFocused: boolean;
   isVisible: boolean;
   hasMcp: boolean;
+  isSandboxed: boolean;
+  sandboxConfig?: PaneSandboxConfig;
+  isRecording: boolean;
   showHeader: boolean;
   onFocus: (paneId: string) => void;
   onSessionClose: (sessionId: string) => void;
+  onMcpToggle?: () => void;
+  onSandboxClick?: () => void;
+  onRecordingToggle?: () => void;
 }
 
 export function TerminalPane({
@@ -27,9 +34,15 @@ export function TerminalPane({
   isFocused,
   isVisible,
   hasMcp,
+  isSandboxed,
+  sandboxConfig,
+  isRecording,
   showHeader,
   onFocus,
   onSessionClose,
+  onMcpToggle,
+  onSandboxClick,
+  onRecordingToggle,
 }: TerminalPaneProps) {
   const handleClick = useCallback(() => {
     onFocus(paneId);
@@ -53,6 +66,12 @@ export function TerminalPane({
           processName={processName}
           isFocused={isFocused}
           hasMcp={hasMcp}
+          isSandboxed={isSandboxed}
+          sandboxConfig={sandboxConfig}
+          isRecording={isRecording}
+          onMcpToggle={onMcpToggle}
+          onSandboxClick={onSandboxClick}
+          onRecordingToggle={onRecordingToggle}
         />
       )}
       <div className="terminal-pane-content">

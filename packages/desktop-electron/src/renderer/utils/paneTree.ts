@@ -10,6 +10,7 @@ import type {
   PendingPane,
   SplitPane,
   SplitDirection,
+  PaneSandboxConfig,
 } from "../types/pane";
 import { isTerminalPane, isPendingPane, isSplitPane } from "../types/pane";
 
@@ -363,13 +364,17 @@ export function findAdjacentPane(
  */
 export function createTerminalPane(
   sessionId: string,
-  processName = "shell"
+  processName = "shell",
+  isSandboxed = false,
+  sandboxConfig?: PaneSandboxConfig
 ): TerminalPane {
   return {
     id: `pane-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     type: "terminal",
     sessionId,
     processName,
+    isSandboxed,
+    sandboxConfig,
   };
 }
 

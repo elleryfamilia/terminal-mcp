@@ -10,10 +10,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { TitleBar } from "./components/TitleBar";
 import { StatusBar } from "./components/StatusBar";
 import { McpConflictDialog } from "./components/McpConflictDialog";
+import { McpDisconnectDialog } from "./components/McpDisconnectDialog";
+import { SandboxSettingsTooltip } from "./components/SandboxSettingsTooltip";
 import { ModeSelectionModal } from "./components/ModeSelectionModal";
 import { PaneContainer } from "./components/PaneContainer";
 import type { SandboxConfig } from "./types/sandbox";
-import type { TabState, SplitDirection } from "./types/pane";
+import type { TabState, SplitDirection, PaneSandboxConfig } from "./types/pane";
 import { isTerminalPane, isPendingPane } from "./types/pane";
 import {
   createTerminalPane,
@@ -36,7 +38,6 @@ import type { NavigationDirection } from "./utils/paneTree";
 interface ConflictDialogState {
   isOpen: boolean;
   targetSessionId: string | null;
-  targetTabTitle: string;
 }
 
 // Detect macOS for title bar styling
@@ -48,7 +49,7 @@ function calculateTerminalSize() {
   const lineHeight = 17;
   const titleBarHeight = isMac ? 42 : 0;
   const statusBarHeight = 24;
-  const paneHeaderHeight = 22;
+  const paneHeaderHeight = 28;
 
   const availableHeight =
     window.innerHeight - titleBarHeight - statusBarHeight - paneHeaderHeight;
@@ -68,6 +69,9 @@ export function App() {
   // Mode selection modal state (for new tabs only)
   const [showModeModal, setShowModeModal] = useState(true);
 
+  // Track which mode was selected for the pending tab creation
+  const pendingTabModeRef = useRef<"direct" | "sandbox">("direct");
+
   // Keep refs to current state for use in callbacks without stale closures
   const tabsRef = useRef<TabState[]>([]);
   tabsRef.current = tabs;
@@ -81,8 +85,18 @@ export function App() {
   const [conflictDialog, setConflictDialog] = useState<ConflictDialogState>({
     isOpen: false,
     targetSessionId: null,
-    targetTabTitle: "",
   });
+
+  // Recording state
+  const [recordingSessionId, setRecordingSessionId] = useState<string | null>(
+    null
+  );
+
+  // MCP disconnect confirmation dialog
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
+
+  // Sandbox settings tooltip
+  const [sandboxTooltipConfig, setSandboxTooltipConfig] = useState<PaneSandboxConfig | null>(null);
 
   // Helper to get the active tab
   const getActiveTab = useCallback(() => {
@@ -123,7 +137,12 @@ export function App() {
         // Use default
       }
 
-      return { sessionId: result.sessionId, processName };
+      return {
+        sessionId: result.sessionId,
+        processName,
+        isSandboxed: mode === "sandbox",
+        sandboxConfig: mode === "sandbox" ? config : undefined,
+      };
     },
     []
   );
@@ -132,12 +151,12 @@ export function App() {
   const createTabWithMode = useCallback(
     async (mode: "direct" | "sandbox", config?: SandboxConfig) => {
       try {
-        const { sessionId, processName } = await createTerminalSession(
+        const { sessionId, processName, isSandboxed, sandboxConfig } = await createTerminalSession(
           mode,
           config
         );
         const tabId = `tab-${++tabCounter.current}`;
-        const pane = createTerminalPane(sessionId, processName);
+        const pane = createTerminalPane(sessionId, processName, isSandboxed, sandboxConfig);
 
         const newTab: TabState = {
           id: tabId,
@@ -171,6 +190,7 @@ export function App() {
   const handleModeSelected = useCallback(
     async (mode: "direct" | "sandbox", config?: SandboxConfig) => {
       setShowModeModal(false);
+      pendingTabModeRef.current = mode;
       await createTabWithMode(mode, config);
     },
     [createTabWithMode]
@@ -219,11 +239,11 @@ export function App() {
       if (!activeTab) return;
 
       try {
-        const { sessionId, processName } = await createTerminalSession(
+        const { sessionId, processName, isSandboxed, sandboxConfig } = await createTerminalSession(
           mode,
           config
         );
-        const terminalPane = createTerminalPane(sessionId, processName);
+        const terminalPane = createTerminalPane(sessionId, processName, isSandboxed, sandboxConfig);
         // Preserve the pane ID so focus works correctly
         terminalPane.id = paneId;
 
@@ -508,31 +528,48 @@ export function App() {
     setActiveTabId(tabId);
   }, []);
 
-  // Handle MCP toggle from status bar
-  const handleMcpToggle = useCallback(() => {
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    if (!activeTab) return;
+  // Handle MCP toggle from pane header
+  const handleMcpToggle = useCallback(
+    (sessionId: string) => {
+      const currentSessionHasMcp = sessionId === mcpAttachedSessionId;
 
-    const focusedPane = findPaneById(
-      activeTab.rootPane,
-      activeTab.focusedPaneId
-    );
-    if (!focusedPane || !isTerminalPane(focusedPane)) return;
+      if (currentSessionHasMcp) {
+        // Show disconnect confirmation dialog
+        setShowDisconnectDialog(true);
+      } else if (mcpAttachedSessionId) {
+        // Another session has MCP - show conflict dialog
+        setConflictDialog({
+          isOpen: true,
+          targetSessionId: sessionId,
+        });
+      } else {
+        // No MCP attached anywhere - attach directly
+        window.terminalAPI.mcpAttach(sessionId).catch(console.error);
+      }
+    },
+    [mcpAttachedSessionId]
+  );
 
-    const currentSessionHasMcp = focusedPane.sessionId === mcpAttachedSessionId;
+  // Handle disconnect dialog confirm
+  const handleDisconnectConfirm = useCallback(() => {
+    window.terminalAPI.mcpDetach().catch(console.error);
+    setShowDisconnectDialog(false);
+  }, []);
 
-    if (currentSessionHasMcp) {
-      window.terminalAPI.mcpDetach().catch(console.error);
-    } else if (mcpAttachedSessionId) {
-      setConflictDialog({
-        isOpen: true,
-        targetSessionId: focusedPane.sessionId,
-        targetTabTitle: activeTab.title,
-      });
-    } else {
-      window.terminalAPI.mcpAttach(focusedPane.sessionId).catch(console.error);
-    }
-  }, [tabs, activeTabId, mcpAttachedSessionId]);
+  // Handle disconnect dialog cancel
+  const handleDisconnectCancel = useCallback(() => {
+    setShowDisconnectDialog(false);
+  }, []);
+
+  // Handle sandbox badge click - show settings tooltip
+  const handleSandboxClick = useCallback((config: PaneSandboxConfig) => {
+    setSandboxTooltipConfig(config);
+  }, []);
+
+  // Handle sandbox tooltip close
+  const handleSandboxTooltipClose = useCallback(() => {
+    setSandboxTooltipConfig(null);
+  }, []);
 
   // Handle conflict dialog confirm
   const handleConflictConfirm = useCallback(() => {
@@ -544,7 +581,6 @@ export function App() {
     setConflictDialog({
       isOpen: false,
       targetSessionId: null,
-      targetTabTitle: "",
     });
   }, [conflictDialog.targetSessionId]);
 
@@ -553,9 +589,28 @@ export function App() {
     setConflictDialog({
       isOpen: false,
       targetSessionId: null,
-      targetTabTitle: "",
     });
   }, []);
+
+  // Handle recording toggle from pane header
+  const handleRecordingToggle = useCallback(
+    async (sessionId: string) => {
+      if (recordingSessionId === sessionId) {
+        // Stop recording
+        await window.terminalAPI.stopRecording(sessionId);
+        setRecordingSessionId(null);
+      } else {
+        // Stop any existing recording first
+        if (recordingSessionId) {
+          await window.terminalAPI.stopRecording(recordingSessionId);
+        }
+        // Start recording
+        await window.terminalAPI.startRecording(sessionId);
+        setRecordingSessionId(sessionId);
+      }
+    },
+    [recordingSessionId]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -675,6 +730,18 @@ export function App() {
     return cleanup;
   }, []);
 
+  // Subscribe to recording changes
+  useEffect(() => {
+    const cleanup = window.terminalAPI.onRecordingChanged((data) => {
+      if (data.isRecording) {
+        setRecordingSessionId(data.sessionId);
+      } else if (data.sessionId === recordingSessionId) {
+        setRecordingSessionId(null);
+      }
+    });
+    return cleanup;
+  }, [recordingSessionId]);
+
   // Get active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -690,6 +757,7 @@ export function App() {
       title: tab.title,
       sessionId: terminalPane?.sessionId || "",
       processName: terminalPane?.processName || "shell",
+      isSandboxed: terminalPane?.isSandboxed || false,
     };
   });
 
@@ -749,12 +817,16 @@ export function App() {
               focusedPaneId={tab.focusedPaneId}
               isTabVisible={tab.id === activeTabId}
               mcpAttachedSessionId={mcpAttachedSessionId}
+              recordingSessionId={recordingSessionId}
               isSinglePane={isTerminalPane(tab.rootPane)}
               onFocus={setFocusedPane}
               onSessionClose={handleSessionClose}
               onSplitRatioChange={handleSplitRatioChange}
               onPendingModeSelected={handlePendingModeSelected}
               onPendingCancel={handlePendingCancel}
+              onMcpToggle={handleMcpToggle}
+              onSandboxClick={handleSandboxClick}
+              onRecordingToggle={handleRecordingToggle}
             />
           </div>
         ))}
@@ -767,19 +839,28 @@ export function App() {
       </div>
       <StatusBar
         sessionId={focusedSessionId}
-        isRecording={false}
+        isRecording={focusedSessionId === recordingSessionId}
         isConnected={activeTab?.isActive || false}
         mcpAttachedSessionId={mcpAttachedSessionId}
         activeTabTitle={mcpTab?.title || null}
-        onMcpToggle={handleMcpToggle}
       />
       <McpConflictDialog
         isOpen={conflictDialog.isOpen}
-        currentMcpTabTitle={mcpTab?.title || "Unknown"}
-        targetTabTitle={conflictDialog.targetTabTitle}
         onCancel={handleConflictCancel}
         onConfirm={handleConflictConfirm}
       />
+      <McpDisconnectDialog
+        isOpen={showDisconnectDialog}
+        onCancel={handleDisconnectCancel}
+        onConfirm={handleDisconnectConfirm}
+      />
+      {sandboxTooltipConfig && (
+        <SandboxSettingsTooltip
+          isOpen={true}
+          config={sandboxTooltipConfig}
+          onClose={handleSandboxTooltipClose}
+        />
+      )}
       <ModeSelectionModal
         isOpen={showModeModal}
         onModeSelected={handleModeSelected}

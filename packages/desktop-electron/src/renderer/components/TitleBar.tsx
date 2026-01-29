@@ -3,16 +3,19 @@
  *
  * Unified title bar with tabs on macOS. Provides draggable area
  * and integrates tabs at the same level as window controls.
+ * Shows MCP and sandbox status icons in tabs.
  */
 
 import { useCallback } from "react";
 import { getProcessIcon, getProcessDisplayName } from "../utils/processIcons";
+import { McpIcon, SandboxIcon } from "./icons";
 
 export interface Tab {
   id: string;
   title: string;
   sessionId: string;
   processName: string;
+  isSandboxed: boolean;
 }
 
 interface TitleBarProps {
@@ -75,7 +78,7 @@ export function TitleBar({
         {/* Traffic light spacer on macOS - only needed when no drag strip */}
         {!showTabs && <div className="title-bar-spacer" />}
 
-        {/* Tabs area - full width */}
+        {/* Tabs area - full width with equal distribution */}
         <div className="title-bar-tabs">
           {showTabs ? (
             // Multiple tabs - show tab bar
@@ -96,12 +99,15 @@ export function TitleBar({
                     onClick={(e) => handleCloseClick(tab.id, e)}
                     title="Close tab"
                   >
-                    ×
+                    x
                   </button>
                   <span className="title-tab-content">
                     <span className="title-tab-icon">{icon}</span>
                     <span className="title-tab-text">{displayName}</span>
-                    {hasMcp && <span className="title-tab-ai" title="Shared with AI">✦</span>}
+                    <span className="title-tab-status">
+                      {tab.isSandboxed && <SandboxIcon size={11} className="title-tab-sandbox" />}
+                      {hasMcp && <McpIcon isActive={true} size={11} className="title-tab-mcp-icon" />}
+                    </span>
                   </span>
                 </div>
               );
@@ -115,9 +121,12 @@ export function TitleBar({
               <span className="title-bar-single-name">
                 {getProcessDisplayName(singleTab.processName)}
               </span>
-              {singleTab.sessionId === mcpAttachedSessionId && (
-                <span className="title-bar-single-ai" title="Shared with AI">✦</span>
-              )}
+              <span className="title-bar-single-status">
+                {singleTab.isSandboxed && <SandboxIcon size={12} className="title-bar-single-sandbox" />}
+                {singleTab.sessionId === mcpAttachedSessionId && (
+                  <McpIcon isActive={true} size={12} className="title-bar-single-mcp" />
+                )}
+              </span>
             </div>
           ) : null}
         </div>

@@ -128,6 +128,9 @@ export class TerminalBridge {
   // Track sessions for event forwarding
   private sessionEventHandlers: Map<string, { cleanup: () => void }> = new Map();
 
+  // Track session-to-recording mappings
+  private sessionRecordings: Map<string, string> = new Map();
+
   // Callback for when manager is ready
   private managerReadyCallbacks: Array<(manager: TerminalManager) => void> = [];
 
@@ -379,6 +382,92 @@ export class TerminalBridge {
 
       return { success: true };
     });
+
+    // Start recording for a session
+    ipcMain.handle("terminal:startRecording", async (_event, sessionId: string) => {
+      if (!this.manager) {
+        return { success: false, error: "No manager" };
+      }
+
+      // Check if already recording this session
+      if (this.sessionRecordings.has(sessionId)) {
+        return { success: false, error: "Already recording this session" };
+      }
+
+      try {
+        const recordingManager = this.manager.getRecordingManager();
+        const recorder = recordingManager.createRecording({ mode: 'always' });
+        const recordingId = recorder.id;
+
+        // Store mapping
+        this.sessionRecordings.set(sessionId, recordingId);
+
+        // Notify renderer
+        if (!this.disposed && this.window && !this.window.isDestroyed()) {
+          this.window.webContents.send("terminal:recordingChanged", {
+            sessionId,
+            isRecording: true,
+            recordingId,
+          });
+        }
+
+        debug("Started recording for session:", sessionId, "recordingId:", recordingId);
+        return { success: true, recordingId };
+      } catch (error) {
+        console.error("[terminal-bridge] Failed to start recording:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // Stop recording for a session
+    ipcMain.handle("terminal:stopRecording", async (_event, sessionId: string) => {
+      if (!this.manager) {
+        return { success: false, error: "No manager" };
+      }
+
+      const recordingId = this.sessionRecordings.get(sessionId);
+      if (!recordingId) {
+        return { success: false, error: "No recording for this session" };
+      }
+
+      try {
+        const recordingManager = this.manager.getRecordingManager();
+        const metadata = await recordingManager.finalizeRecording(recordingId, 0, 'explicit');
+
+        // Remove mapping
+        this.sessionRecordings.delete(sessionId);
+
+        // Notify renderer
+        if (!this.disposed && this.window && !this.window.isDestroyed()) {
+          this.window.webContents.send("terminal:recordingChanged", {
+            sessionId,
+            isRecording: false,
+            filePath: metadata?.path,
+          });
+        }
+
+        debug("Stopped recording for session:", sessionId, "file:", metadata?.path);
+        return { success: true, filePath: metadata?.path };
+      } catch (error) {
+        console.error("[terminal-bridge] Failed to stop recording:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // Get recording status for a session
+    ipcMain.handle("terminal:getRecordingStatus", (_event, sessionId: string) => {
+      const recordingId = this.sessionRecordings.get(sessionId);
+      return {
+        isRecording: !!recordingId,
+        recordingId: recordingId || undefined,
+      };
+    });
   }
 
   /**
@@ -538,6 +627,10 @@ export class TerminalBridge {
     ipcMain.removeHandler("terminal:close");
     ipcMain.removeHandler("terminal:isActive");
     ipcMain.removeHandler("terminal:getProcess");
+    ipcMain.removeHandler("terminal:setSandboxMode");
+    ipcMain.removeHandler("terminal:startRecording");
+    ipcMain.removeHandler("terminal:stopRecording");
+    ipcMain.removeHandler("terminal:getRecordingStatus");
 
     // Clean up GUI stream
     if (this.clientId) {
