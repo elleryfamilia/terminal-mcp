@@ -18,6 +18,8 @@ export interface TerminalSessionOptions {
   env?: Record<string, string>;
   startupBanner?: string;
   sandboxController?: SandboxController;
+  /** Skip prompt customization and use user's native shell config */
+  nativeShell?: boolean;
 }
 
 export interface ScreenshotResult {
@@ -160,9 +162,20 @@ ${bannerCmd}
       allowProposedApi: true,
     });
 
-    // Determine shell type and set up custom prompt
+    // Determine shell type and set up custom prompt (unless nativeShell is enabled)
     const shellName = path.basename(shell);
-    const { args, env } = this.setupShellPrompt(shellName, options.env, options.startupBanner);
+    let args: string[] = [];
+    let env: Record<string, string> = { ...options.env };
+
+    if (options.nativeShell) {
+      // Use native shell without customization - just set TERMINAL_MCP env var
+      env.TERMINAL_MCP = "1";
+    } else {
+      // Set up terminal-mcp custom prompt
+      const promptSetup = this.setupShellPrompt(shellName, options.env, options.startupBanner);
+      args = promptSetup.args;
+      env = promptSetup.env;
+    }
 
     // Determine spawn command - may be wrapped by sandbox
     let spawnCmd = shell;
@@ -352,6 +365,22 @@ ${bannerCmd}
       cols: this.terminal.cols,
       rows: this.terminal.rows,
     };
+  }
+
+  /**
+   * Get the current foreground process name
+   * On macOS/Linux this returns the actual process running in the terminal
+   */
+  getProcess(): string {
+    if (this.disposed) {
+      return "shell";
+    }
+    try {
+      // node-pty's process property returns the current foreground process
+      return this.ptyProcess.process || "shell";
+    } catch {
+      return "shell";
+    }
   }
 
   /**

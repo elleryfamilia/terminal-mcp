@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:;" />
+    <title>Terminal MCP</title>
+    <style>
+      /* Prevent white flash on load */
+      html, body {
+        background-color: #1e1e1e;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Hidden element to force Nerd Font to preload before React renders -->
+    <div aria-hidden="true" style="position:absolute;left:-9999px;font-family:'JetBrainsMono Nerd Font',monospace;font-size:16px;"></div>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  </body>
+</html>

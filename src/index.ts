@@ -5,7 +5,8 @@ import { createRequire } from "module";
 import { startServer } from "./server.js";
 import { startMcpClientMode } from "./client.js";
 import { TerminalManager } from "./terminal/index.js";
-import { createToolProxyServer } from "./transport/index.js";
+import { createToolProxyServer, GUIOutputStream, isGuiMessageToBackend } from "./transport/index.js";
+import type { GuiMessageToBackend, GuiMessageToFrontend } from "./transport/index.js";
 import { getBanner } from "./ui/index.js";
 import { getDefaultSocketPath, getDefaultShell, getDefaultRecordDir } from "./utils/platform.js";
 import {
@@ -15,6 +16,7 @@ import {
   DEFAULT_PERMISSIONS,
   type SandboxPermissions,
 } from "./sandbox/index.js";
+import { promptForMode } from "./sandbox/mode-prompt.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json");
@@ -40,6 +42,8 @@ const options: {
   idleTimeLimit?: number;
   maxDuration?: number;
   inactivityTimeout?: number;
+  guiMode?: boolean;
+  promptModeOnly?: boolean;
 } = {};
 
 for (let i = 0; i < args.length; i++) {
@@ -123,6 +127,12 @@ for (let i = 0; i < args.length; i++) {
         i++;
       }
       break;
+    case "--gui-mode":
+      options.guiMode = true;
+      break;
+    case "--prompt-mode-only":
+      options.promptModeOnly = true;
+      break;
     case "--version":
     case "-v":
       console.log(`terminal-mcp v${version}`);
@@ -141,6 +151,7 @@ Options:
   --socket <path>        Unix socket path for MCP (default: ${DEFAULT_SOCKET_PATH})
   --sandbox              Enable sandbox mode (restricts filesystem/network access)
   --sandbox-config <path> Load sandbox config from JSON file
+  --gui-mode             Enable GUI mode (streams JSON protocol over stdio)
   --version, -v          Show version number
   --help, -h             Show this help message
 
@@ -206,6 +217,12 @@ MCP Client Mode (add to your MCP client config):
       }
     }
   }
+
+GUI Mode (for Electron/desktop wrappers):
+  terminal-mcp --gui-mode
+
+  Streams JSON protocol over stdin/stdout for GUI applications.
+  Messages are newline-delimited JSON. See gui-protocol.ts for types.
 `);
       process.exit(0);
   }
@@ -225,7 +242,27 @@ async function main() {
     process.exit(1);
   }
 
-  if (isInteractive) {
+  // Prompt-only mode: Just show mode selector and output result
+  // Used by GUI wrappers to get user's mode choice before creating terminal
+  if (options.promptModeOnly) {
+    try {
+      const mode = await promptForMode();
+      // Output result as JSON for parent process to read
+      console.log(JSON.stringify({ mode }));
+      process.exit(0);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Cancelled by user') {
+        console.log(JSON.stringify({ mode: null, cancelled: true }));
+        process.exit(0);
+      }
+      throw error;
+    }
+  }
+
+  // GUI mode takes priority - used by Electron/desktop wrappers
+  if (options.guiMode) {
+    await startGuiMode();
+  } else if (isInteractive) {
     // Interactive mode: Shell on stdin/stdout, tool proxy on Unix socket
     await startInteractiveMode(socketPath);
   } else {
@@ -240,11 +277,27 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
   const rows = options.rows ?? (process.stdout.rows || 40);
   const shell = options.shell || getDefaultShell();
 
+  // 1. Show mode selection prompt (unless --sandbox flag overrides)
+  let mode: 'direct' | 'sandbox';
+  if (options.sandbox) {
+    mode = 'sandbox';
+  } else {
+    try {
+      mode = await promptForMode();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Cancelled by user') {
+        console.log("[terminal-mcp] Cancelled.");
+        process.exit(0);
+      }
+      throw error;
+    }
+  }
+
   // Initialize sandbox if enabled
   let sandboxController: SandboxController | undefined;
   let sandboxEnabled = false;
 
-  if (options.sandbox) {
+  if (mode === 'sandbox') {
     sandboxController = new SandboxController();
 
     // Check platform support and dependencies BEFORE showing the modal
@@ -439,6 +492,197 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
   process.on("exit", () => {
     cleanup();
   });
+}
+
+/**
+ * GUI Mode: Streams JSON protocol over stdin/stdout for GUI applications.
+ * Used by Electron/Tauri wrappers that embed terminal-mcp.
+ *
+ * Protocol:
+ * - Input (stdin): Newline-delimited JSON messages (GuiMessageToBackend)
+ * - Output (stdout): Newline-delimited JSON messages (GuiMessageToFrontend)
+ * - Stderr: Error/debug logging
+ */
+async function startGuiMode(): Promise<void> {
+  const cols = options.cols ?? 120;
+  const rows = options.rows ?? 40;
+  const shell = options.shell || getDefaultShell();
+
+  // 1. Show mode selection prompt FIRST (outputs ANSI codes to stdout)
+  let mode: 'direct' | 'sandbox';
+  if (options.sandbox) {
+    mode = 'sandbox';
+  } else {
+    try {
+      mode = await promptForMode();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Cancelled by user') {
+        console.log("[terminal-mcp] Cancelled.");
+        process.exit(0);
+      }
+      throw error;
+    }
+  }
+
+  // 2. If sandbox mode, get permissions and initialize
+  let sandboxController: SandboxController | undefined;
+  if (mode === 'sandbox') {
+    sandboxController = new SandboxController();
+
+    // Check platform support
+    if (!sandboxController.isSupported()) {
+      const platform = sandboxController.getPlatform();
+      if (platform === "win32") {
+        console.error("[terminal-mcp] Error: Sandbox mode is not supported on Windows.");
+      } else {
+        console.error(`[terminal-mcp] Error: Sandbox mode is not supported on platform '${platform}'.`);
+      }
+      console.error("[terminal-mcp] Please run without the --sandbox flag.");
+      process.exit(1);
+    }
+
+    // Check Linux-specific dependencies
+    const depCheck = sandboxController.checkLinuxDependencies();
+    if (!depCheck.supported) {
+      console.error(`[terminal-mcp] Error: Sandbox dependencies not available.`);
+      console.error(`[terminal-mcp] Missing: ${depCheck.message}`);
+      console.error("");
+      console.error("To install on Arch Linux:");
+      console.error("  sudo pacman -S bubblewrap socat");
+      console.error("");
+      console.error("To install on Debian/Ubuntu:");
+      console.error("  sudo apt install bubblewrap socat");
+      console.error("");
+      console.error("Or run without the --sandbox flag.");
+      process.exit(1);
+    }
+
+    // Determine permissions
+    let permissions: SandboxPermissions;
+    if (options.sandboxConfig) {
+      try {
+        permissions = loadConfigFromFile(options.sandboxConfig);
+        console.log(`[terminal-mcp] Loaded sandbox config from ${options.sandboxConfig}`);
+      } catch (error) {
+        console.error(`[terminal-mcp] Failed to load sandbox config: ${error}`);
+        process.exit(1);
+      }
+    } else {
+      // Interactive permission prompt (will also render in xterm.js)
+      try {
+        permissions = await promptForPermissions();
+      } catch (error) {
+        if (error instanceof Error && error.message === "cancelled") {
+          console.log("[terminal-mcp] Cancelled.");
+          process.exit(0);
+        }
+        throw error;
+      }
+    }
+
+    // Initialize sandbox
+    const status = await sandboxController.initialize(permissions);
+    if (status.enabled) {
+      console.log(`[terminal-mcp] Sandbox enabled (${status.platform})`);
+    } else {
+      console.error(`[terminal-mcp] Error: Failed to initialize sandbox: ${status.reason}`);
+      console.error("[terminal-mcp] Please run without the --sandbox flag or fix the issue above.");
+      process.exit(1);
+    }
+  }
+
+  // 3. NOW start GUI protocol
+  // Create terminal manager
+  const manager = new TerminalManager({
+    cols,
+    rows,
+    shell: options.shell,
+    sandboxController,
+    record: options.record,
+    recordDir: options.recordDir,
+    recordFormat: options.recordFormat,
+    idleTimeLimit: options.idleTimeLimit,
+    maxDuration: options.maxDuration,
+    inactivityTimeout: options.inactivityTimeout,
+  });
+
+  // Create GUI output stream
+  const guiStream = new GUIOutputStream();
+  guiStream.attachManager(manager);
+
+  // Add a client for stdout communication
+  const clientId = guiStream.addClient((message: GuiMessageToFrontend) => {
+    // Write JSON message to stdout (newline-delimited)
+    process.stdout.write(JSON.stringify(message) + "\n");
+  });
+
+  // Handle error events
+  guiStream.on("error", (error) => {
+    console.error("[gui-mode] Stream error:", error.message);
+  });
+
+  // Parse incoming JSON messages from stdin
+  let buffer = "";
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", async (chunk: string) => {
+    buffer += chunk;
+
+    // Process complete lines
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+      const line = buffer.slice(0, newlineIndex).trim();
+      buffer = buffer.slice(newlineIndex + 1);
+
+      if (line.length === 0) continue;
+
+      try {
+        const message = JSON.parse(line);
+        if (isGuiMessageToBackend(message)) {
+          await guiStream.handleMessage(clientId, message);
+        } else {
+          console.error("[gui-mode] Invalid message format:", line);
+        }
+      } catch (error) {
+        console.error("[gui-mode] Failed to parse message:", line);
+      }
+    }
+  });
+
+  process.stdin.on("end", () => {
+    console.error("[gui-mode] stdin closed, shutting down");
+    cleanup();
+    process.exit(0);
+  });
+
+  // Cleanup function
+  function cleanup() {
+    guiStream.dispose();
+    manager.dispose();
+  }
+
+  // Handle signals
+  process.on("SIGINT", () => {
+    cleanup();
+    process.exit(0);
+  });
+
+  process.on("SIGTERM", () => {
+    cleanup();
+    process.exit(0);
+  });
+
+  process.on("exit", () => {
+    cleanup();
+  });
+
+  // Send ready message
+  const readyMessage: GuiMessageToFrontend = {
+    type: "session-list",
+    sessions: [],
+  };
+  process.stdout.write(JSON.stringify(readyMessage) + "\n");
+
+  console.error(`[gui-mode] Ready. Shell: ${shell}, Size: ${cols}x${rows}`);
 }
 
 main().catch((error) => {

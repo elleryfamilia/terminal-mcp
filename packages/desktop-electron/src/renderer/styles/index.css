@@ -1,0 +1,1180 @@
+/**
+ * Terminal MCP Desktop Styles
+ *
+ * Main stylesheet for the Electron desktop application.
+ */
+
+/* Nerd Font - JetBrains Mono with icons/symbols */
+@font-face {
+  font-family: "JetBrainsMono Nerd Font";
+  src: url("../fonts/JetBrainsMonoNerdFont-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrainsMono Nerd Font";
+  src: url("../fonts/JetBrainsMonoNerdFont-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Reset & Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* App Container */
+.app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+/* Loading State */
+.app-loading {
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #3c3c3c;
+  border-top-color: #0dbc79;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.app-loading p {
+  color: #888;
+  font-size: 14px;
+}
+
+/* Error State */
+.app-error {
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 40px;
+}
+
+.error-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #cd3131;
+  color: white;
+  font-size: 36px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-error h2 {
+  color: #d4d4d4;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.app-error p {
+  color: #888;
+  font-size: 14px;
+  max-width: 400px;
+}
+
+.app-error button {
+  margin-top: 8px;
+  padding: 8px 24px;
+  background-color: #0e639c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.app-error button:hover {
+  background-color: #1177bb;
+}
+
+.app-error button:active {
+  background-color: #0d5a8e;
+}
+
+/* Terminal Container */
+.terminal-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.terminal-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.terminal-wrapper.hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.terminal-wrapper.visible {
+  visibility: visible;
+}
+
+.terminal {
+  width: 100%;
+  height: 100%;
+}
+
+.no-tabs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: #888;
+}
+
+.no-tabs button {
+  padding: 8px 16px;
+  background-color: #0e639c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.no-tabs button:hover {
+  background-color: #1177bb;
+}
+
+/* Ensure xterm.js fills container */
+.terminal .xterm {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+}
+
+.terminal .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+/* Status Bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 24px;
+  padding: 0 12px;
+  background-color: #007acc;
+  color: white;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.status-bar-left,
+.status-bar-center,
+.status-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-bar-left {
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.status-bar-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.status-bar-right {
+  flex: 1;
+  justify-content: flex-end;
+}
+
+/* Status Indicators */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #0dbc79;
+}
+
+.status-indicator.disconnected .status-dot {
+  background-color: #cd3131;
+}
+
+.status-indicator.recording .recording-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #cd3131;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.session-id {
+  color: rgba(255, 255, 255, 0.7);
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.socket-path {
+  color: rgba(255, 255, 255, 0.5);
+  font-family: monospace;
+  font-size: 10px;
+  margin-right: 12px;
+}
+
+.branding {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+/* MCP Indicator */
+.status-indicator.mcp {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.status-indicator.mcp-connected {
+  background-color: rgba(46, 204, 113, 0.2);
+}
+
+.mcp-icon {
+  font-size: 10px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.5px;
+}
+
+.mcp-icon.active {
+  color: #2ecc71;
+}
+
+.mcp-count {
+  background-color: #2ecc71;
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 8px;
+  min-width: 14px;
+  text-align: center;
+}
+
+/* Scrollbar styling for xterm */
+.terminal ::-webkit-scrollbar {
+  width: 10px;
+}
+
+.terminal ::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.terminal ::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 5px;
+}
+
+.terminal ::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+
+/* macOS title bar inset handling */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1e1e1e;
+  }
+}
+
+/* Title Bar (macOS) - Unified with tabs */
+.title-bar {
+  height: 42px;
+  background-color: #1e1e1e;
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+  padding-right: 12px;
+}
+
+.title-bar-drag-region {
+  -webkit-app-region: drag;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+}
+
+/* Spacer for macOS traffic lights - more room */
+.title-bar-spacer {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+/* Tabs container - full width with equal distribution */
+.title-bar-tabs {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  -webkit-app-region: no-drag;
+  z-index: 1;
+  height: 100%;
+}
+
+/* Individual tab in title bar - equal width distribution */
+.title-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  -webkit-app-region: no-drag;
+  position: relative;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.title-tab:last-child {
+  border-right: none;
+}
+
+.title-tab:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.title-tab-active {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.title-tab-active:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Tab content - centered icon and text */
+.title-tab-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.title-tab-icon {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-size: 15px;
+  color: #888;
+}
+
+.title-tab-active .title-tab-icon {
+  color: #d4d4d4;
+}
+
+.title-tab-text {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.title-tab-active .title-tab-text {
+  color: #d4d4d4;
+}
+
+/* Close button - positioned on left side of tab */
+.title-tab-close {
+  position: absolute;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: #555;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.title-tab:hover .title-tab-close {
+  opacity: 1;
+}
+
+.title-tab-close:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #d4d4d4;
+}
+
+/* MCP-enabled tab in title bar */
+.title-tab-mcp {
+  background-color: #2ecc71 !important;
+}
+
+.title-tab-mcp:hover {
+  background-color: #27ae60 !important;
+}
+
+.title-tab-mcp .title-tab-icon {
+  color: #1a1a1a;
+}
+
+.title-tab-mcp .title-tab-text {
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.title-tab-mcp .title-tab-close {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.title-tab-mcp:hover .title-tab-close {
+  opacity: 1;
+}
+
+.title-tab-mcp .title-tab-close:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+  color: #1a1a1a;
+}
+
+.title-tab-ai {
+  font-size: 9px;
+  font-weight: bold;
+  color: #1a1a1a;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+
+/* Single tab - centered process name */
+.title-bar-single {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  height: 100%;
+}
+
+.title-bar-single-icon {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-size: 16px;
+  color: #888;
+}
+
+.title-bar-single-name {
+  font-size: 13px;
+  color: #999;
+  font-weight: 400;
+}
+
+.title-bar-single-ai {
+  font-size: 9px;
+  font-weight: bold;
+  color: #1e1e1e;
+  background-color: #2ecc71;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+
+/* New tab button in title bar */
+.title-bar-new-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #555;
+  font-size: 22px;
+  cursor: pointer;
+  border-radius: 6px;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+  z-index: 1;
+  transition: all 0.15s;
+  margin-left: 8px;
+}
+
+.title-bar-new-tab:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #d4d4d4;
+}
+
+/* Focus styles */
+.terminal:focus-within {
+  outline: none;
+}
+
+/* Selection colors */
+::selection {
+  background-color: #264f78;
+}
+
+/* MCP Toggle Button in Status Bar */
+.mcp-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mcp-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.mcp-toggle.mcp-enabled {
+  background-color: rgba(46, 204, 113, 0.3);
+  border-color: #2ecc71;
+  color: white;
+}
+
+.mcp-toggle.mcp-enabled:hover {
+  background-color: rgba(46, 204, 113, 0.4);
+}
+
+.mcp-toggle-icon {
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.mcp-toggle.mcp-enabled .mcp-toggle-icon {
+  color: #2ecc71;
+}
+
+.mcp-toggle-label {
+  white-space: nowrap;
+}
+
+/* MCP Status Text in Center */
+.mcp-status-text {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+}
+
+.mcp-status-text.mcp-disabled {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Dialog Overlay */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Dialog */
+.dialog {
+  background-color: #2d2d2d;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  min-width: 380px;
+  max-width: 500px;
+  overflow: hidden;
+}
+
+.dialog-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.dialog-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #d4d4d4;
+}
+
+.dialog-body {
+  padding: 20px;
+}
+
+.dialog-body p {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #b4b4b4;
+  line-height: 1.5;
+}
+
+.dialog-body p:last-child {
+  margin-bottom: 0;
+}
+
+.dialog-body strong {
+  color: #d4d4d4;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid #3c3c3c;
+  background-color: #252526;
+}
+
+.dialog-button {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.dialog-button-secondary {
+  background-color: #3c3c3c;
+  color: #d4d4d4;
+}
+
+.dialog-button-secondary:hover {
+  background-color: #4a4a4a;
+}
+
+.dialog-button-primary {
+  background-color: #0e639c;
+  color: white;
+}
+
+.dialog-button-primary:hover {
+  background-color: #1177bb;
+}
+
+.dialog-button-primary:active {
+  background-color: #0d5a8e;
+}
+
+/* Mode Selection Modal - Minimal TUI */
+.mode-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.tui-mode-dialog {
+  background-color: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(100, 100, 100, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  width: 420px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  font-family: "JetBrainsMono Nerd Font", "Courier New", monospace;
+  color: #d4d4d4;
+  transition: all 0.3s ease-in-out;
+  overflow: hidden;
+}
+
+/* Header removed - keeping selector for potential future use */
+.tui-mode-header {
+  display: none;
+}
+
+.tui-mode-content {
+  padding: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tui-mode-content > .tui-mode-option:first-child {
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
+}
+
+.tui-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(60, 60, 60, 0.5);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: #d4d4d4;
+  font-family: "JetBrainsMono Nerd Font", "Courier New", monospace;
+  font-size: 13px;
+  transition: background-color 0.15s ease;
+}
+
+.tui-mode-option:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tui-mode-selected {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.tui-mode-option.tui-mode-focused {
+  outline: 1px solid rgba(13, 188, 121, 0.4);
+  outline-offset: -1px;
+}
+
+.tui-mode-indicator {
+  font-size: 16px;
+  color: #555;
+  transition: color 0.15s ease;
+}
+
+.tui-mode-selected .tui-mode-indicator {
+  color: #0dbc79;
+}
+
+.tui-mode-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tui-mode-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #d4d4d4;
+}
+
+.tui-mode-desc {
+  font-size: 11px;
+  color: #888;
+}
+
+.tui-mode-footer {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(60, 60, 60, 0.5);
+  background-color: rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tui-mode-hint {
+  font-size: 10px;
+  color: #666;
+  text-align: center;
+}
+
+.tui-mode-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.tui-btn {
+  padding: 8px 20px;
+  font-family: "JetBrainsMono Nerd Font", "Courier New", monospace;
+  font-size: 12px;
+  background: rgba(13, 188, 121, 0.1);
+  border: 1px solid rgba(13, 188, 121, 0.4);
+  border-radius: 4px;
+  color: #0dbc79;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tui-btn:hover {
+  background-color: rgba(13, 188, 121, 0.2);
+  border-color: rgba(13, 188, 121, 0.6);
+}
+
+/* Inline Sandbox Config */
+.tui-sandbox-config {
+  border-top: 1px solid rgba(60, 60, 60, 0.5);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+.tui-sandbox-config.tui-sandbox-expanded {
+  max-height: 600px;
+  opacity: 1;
+}
+
+.tui-sandbox-config .tui-warning {
+  padding: 12px;
+  background-color: rgba(255, 193, 7, 0.1);
+  color: #daa520;
+  font-size: 11px;
+  border-bottom: 1px solid rgba(60, 60, 60, 0.5);
+}
+
+.tui-sandbox-config .tui-section {
+  border-bottom: 1px solid rgba(60, 60, 60, 0.5);
+}
+
+.tui-sandbox-config .tui-section-header {
+  padding: 12px;
+  font-size: 11px;
+  color: #888;
+  background-color: rgba(37, 37, 38, 0.8);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tui-sandbox-config .tui-section-header.tui-section-focused {
+  color: #0dbc79;
+}
+
+.tui-sandbox-config .tui-section-hint {
+  font-size: 9px;
+  color: #555;
+}
+
+.tui-sandbox-config .tui-table {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tui-sandbox-config .tui-table-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #d4d4d4;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(42, 42, 42, 0.5);
+  transition: background-color 0.1s ease;
+}
+
+.tui-sandbox-config .tui-table-row:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tui-sandbox-config .tui-table-row.tui-row-focused {
+  background-color: rgba(13, 188, 121, 0.15);
+  outline: 1px solid rgba(13, 188, 121, 0.3);
+  outline-offset: -1px;
+}
+
+.tui-sandbox-config .tui-col-path {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tui-sandbox-config .tui-path-count {
+  font-size: 9px;
+  color: #666;
+  background-color: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Expand/collapse icon for groups */
+.tui-sandbox-config .tui-expand-icon {
+  font-size: 8px;
+  color: #666;
+  width: 12px;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+/* Group row styling */
+.tui-sandbox-config .tui-row-group {
+  font-weight: 500;
+}
+
+/* Child row (indented path within expanded group) */
+.tui-sandbox-config .tui-row-child {
+  padding-left: 28px;
+  background-color: rgba(0, 0, 0, 0.15);
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.tui-sandbox-config .tui-row-child .tui-col-path {
+  font-size: 10px;
+  color: #999;
+}
+
+.tui-sandbox-config .tui-row-child.tui-row-focused {
+  background-color: rgba(13, 188, 121, 0.1);
+  border-left-color: rgba(13, 188, 121, 0.4);
+}
+
+/* Mixed access badge */
+.tui-sandbox-config .tui-access-mixed {
+  color: #b4a7d6;
+  border-color: rgba(180, 167, 214, 0.3);
+  background-color: rgba(180, 167, 214, 0.1);
+}
+
+.tui-sandbox-config .tui-access-badge {
+  padding: 3px 10px;
+  font-family: "JetBrainsMono Nerd Font", "Courier New", monospace;
+  font-size: 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: #888;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.1s ease;
+}
+
+.tui-sandbox-config .tui-access-badge:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tui-sandbox-config .tui-access-readwrite {
+  color: #4ec9b0;
+  border-color: rgba(78, 201, 176, 0.3);
+  background-color: rgba(78, 201, 176, 0.1);
+}
+
+.tui-sandbox-config .tui-access-readonly {
+  color: #569cd6;
+  border-color: rgba(86, 156, 214, 0.3);
+  background-color: rgba(86, 156, 214, 0.1);
+}
+
+.tui-sandbox-config .tui-access-blocked {
+  color: #f48771;
+  border-color: rgba(244, 135, 113, 0.3);
+  background-color: rgba(244, 135, 113, 0.1);
+}
+
+.tui-sandbox-config .tui-remove-btn {
+  padding: 2px 8px;
+  font-family: "JetBrainsMono Nerd Font", "Courier New", monospace;
+  font-size: 14px;
+  border: none;
+  background: none;
+  color: #888;
+  cursor: pointer;
+}
+
+.tui-sandbox-config .tui-remove-btn:hover {
+  color: #f48771;
+}
+
+.tui-sandbox-config .tui-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #3c3c3c;
+}
+
+.tui-sandbox-config .tui-input-row.tui-indent {
+  padding-left: 24px;
+  border-top: none;
+}
+
+.tui-sandbox-config .tui-input {
+  flex: 1;
+  padding: 6px 8px;
+  font-family: "JetBrainsMono Nerd Font", "Courier New", monospace;
+  font-size: 11px;
+  background: none;
+  border: 1px solid #555;
+  color: #d4d4d4;
+}
+
+.tui-sandbox-config .tui-input:focus {
+  outline: none;
+  border-color: #888;
+}
+
+.tui-sandbox-config .tui-input::placeholder {
+  color: #555;
+}
+
+.tui-sandbox-config .tui-btn-add {
+  padding: 6px 12px;
+  font-family: "JetBrainsMono Nerd Font", "Courier New", monospace;
+  font-size: 12px;
+  background: none;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  cursor: pointer;
+}
+
+.tui-sandbox-config .tui-btn-add:hover:not(:disabled) {
+  background-color: #2a2a2a;
+}
+
+.tui-sandbox-config .tui-btn-add:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tui-sandbox-config .tui-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.tui-sandbox-config .tui-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #d4d4d4;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+}
+
+.tui-sandbox-config .tui-radio:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tui-sandbox-config .tui-radio.tui-radio-focused {
+  background-color: rgba(13, 188, 121, 0.15);
+  outline: 1px solid rgba(13, 188, 121, 0.3);
+  outline-offset: -1px;
+}
+
+.tui-sandbox-config .tui-radio input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tui-sandbox-config .tui-radio span {
+  user-select: none;
+}
+
+/* Scrollbar for sandbox table */
+.tui-sandbox-config .tui-table::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tui-sandbox-config .tui-table::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.tui-sandbox-config .tui-table::-webkit-scrollbar-thumb {
+  background: #424242;
+}
+
+.tui-sandbox-config .tui-table::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+
+/* Scrollbar for mode content */
+.tui-mode-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.tui-mode-content::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.tui-mode-content::-webkit-scrollbar-thumb {
+  background: #424242;
+}
+
+.tui-mode-content::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+

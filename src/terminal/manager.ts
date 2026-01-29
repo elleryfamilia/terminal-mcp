@@ -2,7 +2,8 @@ import { TerminalSession, TerminalSessionOptions, ScreenshotResult } from "./ses
 import type { SandboxController } from "../sandbox/index.js";
 import { RecordingManager } from "../recording/index.js";
 import type { RecordingMode, RecordingFormat, RecordingMetadata } from "../recording/index.js";
-import { getDefaultRecordDir } from "../utils/platform.js";
+import { getDefaultRecordDir, getDefaultShell } from "../utils/platform.js";
+import { randomUUID } from "crypto";
 
 /**
  * Options for creating a TerminalManager
@@ -15,15 +16,41 @@ export interface TerminalManagerOptions extends TerminalSessionOptions {
   idleTimeLimit?: number;
   maxDuration?: number;
   inactivityTimeout?: number;
+  /** Skip prompt customization and use user's native shell config */
+  nativeShell?: boolean;
+}
+
+/**
+ * Options for creating an individual session
+ */
+export interface CreateSessionOptions {
+  cols?: number;
+  rows?: number;
+  shell?: string;
+  cwd?: string;
+  env?: Record<string, string>;
+}
+
+/**
+ * Extended session with ID for multi-session support
+ */
+export interface ManagedSession extends TerminalSession {
+  id: string;
 }
 
 /**
  * Manages the terminal session lifecycle
- * Currently supports a single session for simplicity
+ * Supports both single-session (legacy) and multi-session modes
  */
 export class TerminalManager {
+  // Legacy single-session support
   private session: TerminalSession | null = null;
   private sessionPromise: Promise<TerminalSession> | null = null;
+
+  // Multi-session support
+  private sessions: Map<string, TerminalSession> = new Map();
+  private sessionCounter = 0;
+
   private options: TerminalManagerOptions;
   private sandboxController?: SandboxController;
   private recordingManager: RecordingManager;
@@ -41,6 +68,90 @@ export class TerminalManager {
       inactivityTimeout: options.inactivityTimeout ?? 600,
     });
   }
+
+  /**
+   * Get the default shell path
+   */
+  getDefaultShell(): string {
+    return this.options.shell || getDefaultShell();
+  }
+
+  // =========================================================================
+  // Multi-Session API (for GUI/Electron)
+  // =========================================================================
+
+  /**
+   * Create a new terminal session with a unique ID
+   */
+  async createSession(options: CreateSessionOptions = {}): Promise<ManagedSession> {
+    const sessionId = `session-${++this.sessionCounter}-${randomUUID().slice(0, 8)}`;
+
+    const session = await TerminalSession.create({
+      cols: options.cols ?? this.options.cols ?? 120,
+      rows: options.rows ?? this.options.rows ?? 40,
+      shell: options.shell ?? this.options.shell,
+      cwd: options.cwd ?? this.options.cwd,
+      env: options.env ?? this.options.env,
+      nativeShell: this.options.nativeShell,
+      sandboxController: this.sandboxController,
+    });
+
+    // Store in map
+    this.sessions.set(sessionId, session);
+
+    // Wire up recording hooks
+    session.onData((data) => this.recordingManager.recordOutputToAll(data));
+    session.onResize((cols, rows) => this.recordingManager.recordResizeToAll(cols, rows));
+
+    // Clean up when session exits
+    session.onExit(() => {
+      this.sessions.delete(sessionId);
+    });
+
+    // Return session with ID attached
+    const managedSession = session as ManagedSession;
+    managedSession.id = sessionId;
+
+    return managedSession;
+  }
+
+  /**
+   * Get a session by ID
+   */
+  getSessionById(sessionId: string): TerminalSession | null {
+    return this.sessions.get(sessionId) ?? null;
+  }
+
+  /**
+   * Close a session by ID
+   */
+  closeSession(sessionId: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.dispose();
+      this.sessions.delete(sessionId);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get all active session IDs
+   */
+  getSessionIds(): string[] {
+    return Array.from(this.sessions.keys());
+  }
+
+  /**
+   * Get count of active sessions
+   */
+  getSessionCount(): number {
+    return this.sessions.size;
+  }
+
+  // =========================================================================
+  // Legacy Single-Session API (for CLI/MCP compatibility)
+  // =========================================================================
 
   /**
    * Get or create the terminal session (async)
@@ -213,10 +324,17 @@ export class TerminalManager {
    * Dispose of the current session and cleanup sandbox
    */
   dispose(): void {
+    // Dispose legacy session
     if (this.session) {
       this.session.dispose();
       this.session = null;
     }
+
+    // Dispose all multi-session instances
+    for (const session of this.sessions.values()) {
+      session.dispose();
+    }
+    this.sessions.clear();
   }
 
   /**

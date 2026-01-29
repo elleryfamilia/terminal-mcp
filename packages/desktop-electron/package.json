@@ -1,0 +1,65 @@
+{
+  "name": "@ellery/terminal-mcp-desktop",
+  "version": "0.1.0",
+  "description": "Desktop GUI for terminal-mcp - A terminal emulator with MCP support",
+  "author": "Ellery Familia",
+  "license": "MIT",
+  "main": "dist/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "ELECTRON_DEV=true npm run build:main && concurrently \"npm run watch:main\" \"npm run watch:renderer\" \"ELECTRON_DEV=true npm run electron\"",
+    "build": "npm run build:main && npm run build:renderer",
+    "build:main": "tsc -p tsconfig.main.json && cp src/main/preload.cjs dist/main/",
+    "build:renderer": "vite build",
+    "watch:main": "tsc -p tsconfig.main.json --watch",
+    "watch:renderer": "vite build --watch",
+    "electron": "electron .",
+    "start": "npm run build && electron .",
+    "package": "npm run build && electron-builder",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:win": "npm run build && electron-builder --win",
+    "package:linux": "npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@ellery/terminal-mcp": "file:../..",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-webgl": "^0.18.0",
+    "@xterm/xterm": "^5.5.0",
+    "electron-store": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^8.2.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.ellery.terminal-mcp",
+    "productName": "Terminal MCP",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "resources/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "resources/icon.icns"
+    },
+    "win": {
+      "icon": "resources/icon.ico"
+    },
+    "linux": {
+      "icon": "resources/icon.png",
+      "category": "Development"
+    }
+  }
+}
