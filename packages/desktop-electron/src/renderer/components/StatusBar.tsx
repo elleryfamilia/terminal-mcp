@@ -1,9 +1,8 @@
 /**
  * Status Bar Component
  *
- * Displays session status, MCP connection indicator, and other information
- * at the bottom of the terminal window.
- * MCP toggle has been moved to pane headers.
+ * Displays session status and other information at the bottom of the terminal window.
+ * MCP info has been moved to the MCP Dashboard.
  */
 
 import { useEffect, useState } from "react";
@@ -53,37 +52,24 @@ export function StatusBar({
           </span>
         )}
 
-        {/* MCP client connection count */}
-        {mcpStatus && mcpStatus.isRunning && mcpStatus.clientCount > 0 && (
-          <span
-            className="status-indicator mcp mcp-connected"
-            title={`${mcpStatus.clientCount} AI assistant(s) connected`}
-          >
-            <span className="mcp-count">{mcpStatus.clientCount}</span>
+        {/* MCP attachment indicator (simple) */}
+        {mcpAttachedSessionId && (
+          <span className="status-indicator mcp mcp-connected" title="MCP enabled">
+            <span className="mcp-icon active">MCP</span>
           </span>
         )}
       </div>
 
       <div className="status-bar-center">
-        {/* MCP attachment status */}
-        {mcpAttachedSessionId ? (
-          <span className="mcp-status-text" title={`MCP attached to ${mcpAttachedSessionId}`}>
-            MCP: {activeTabTitle || "Terminal"}
-          </span>
-        ) : (
-          <span className="mcp-status-text mcp-disabled" title="MCP not attached to any terminal">
-            MCP: Disabled
+        {/* Socket path for connection */}
+        {mcpStatus?.isRunning && (
+          <span className="socket-path" title={`Connect: ${mcpStatus.socketPath}`}>
+            {mcpStatus.socketPath}
           </span>
         )}
       </div>
 
       <div className="status-bar-right">
-        {/* MCP socket path hint */}
-        {mcpStatus?.isRunning && (
-          <span className="socket-path" title={`Connect: ${mcpStatus.socketPath}`}>
-            {mcpStatus.socketPath.split("/").pop()}
-          </span>
-        )}
         {/* Terminal MCP branding */}
         <span className="branding">Terminal MCP</span>
       </div>

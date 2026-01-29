@@ -1731,3 +1731,994 @@ body,
   margin-top: 4px;
 }
 
+/* ==================== MCP Activity Panel ==================== */
+
+.mcp-activity-panel {
+  flex: 0 0 auto;
+  border-top: 1px solid #3c3c3c;
+  background: #1e1e1e;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+.mcp-activity-panel.collapsed {
+  height: 28px;
+}
+
+.mcp-activity-panel.expanded {
+  height: 150px;
+}
+
+.mcp-activity-header {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  cursor: pointer;
+  background: #252526;
+  user-select: none;
+}
+
+.mcp-activity-header:hover {
+  background: #2a2a2a;
+}
+
+.mcp-activity-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mcp-activity-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mcp-activity-toggle {
+  font-size: 10px;
+  color: #888;
+  width: 12px;
+}
+
+.mcp-activity-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: #d4d4d4;
+}
+
+.mcp-activity-client-count {
+  font-size: 10px;
+  color: #2ecc71;
+  background: rgba(46, 204, 113, 0.15);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.mcp-activity-clear {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mcp-activity-clear:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #666;
+  color: #d4d4d4;
+}
+
+.mcp-activity-content {
+  height: calc(100% - 28px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mcp-activity-clients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #2d2d2d;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.mcp-activity-client {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #b4b4b4;
+}
+
+.mcp-client-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ecc71;
+}
+
+.mcp-client-name {
+  color: #d4d4d4;
+}
+
+.mcp-client-version {
+  color: #888;
+  font-size: 10px;
+}
+
+.mcp-client-host {
+  color: #666;
+  font-size: 10px;
+}
+
+.mcp-activity-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.mcp-activity-empty {
+  padding: 16px 12px;
+  color: #666;
+  font-size: 11px;
+  text-align: center;
+}
+
+.mcp-activity-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  border-bottom: 1px solid rgba(45, 45, 45, 0.5);
+}
+
+.mcp-activity-item:last-child {
+  border-bottom: none;
+}
+
+.mcp-activity-time {
+  color: #666;
+  font-size: 10px;
+  min-width: 60px;
+}
+
+.mcp-activity-icon {
+  width: 14px;
+  text-align: center;
+  font-size: 10px;
+}
+
+.mcp-activity-tool {
+  color: #4ec9b0;
+  font-weight: 500;
+}
+
+.mcp-activity-args {
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.mcp-activity-duration {
+  color: #666;
+  font-size: 10px;
+  margin-left: auto;
+}
+
+.mcp-activity-error-msg {
+  color: #f48771;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.mcp-activity-message {
+  color: #888;
+}
+
+/* Activity item types */
+.mcp-activity-item-started .mcp-activity-icon {
+  color: #dcdcaa;
+}
+
+.mcp-activity-item-completed .mcp-activity-icon {
+  color: #4ec9b0;
+}
+
+.mcp-activity-item-error .mcp-activity-icon {
+  color: #f48771;
+}
+
+.mcp-activity-item-connect .mcp-activity-icon {
+  color: #2ecc71;
+}
+
+.mcp-activity-item-disconnect .mcp-activity-icon {
+  color: #888;
+}
+
+/* Scrollbar for activity list */
+.mcp-activity-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.mcp-activity-list::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.mcp-activity-list::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 4px;
+}
+
+.mcp-activity-list::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+
+/* ==================== MCP Dashboard ==================== */
+
+.mcp-dashboard {
+  flex: 0 0 auto;
+  background: #1e1e1e;
+  overflow: hidden;
+  transition: height 0.25s ease;
+}
+
+.mcp-dashboard.collapsed {
+  height: 24px;
+}
+
+.mcp-dashboard.expanded {
+  height: 240px;
+  border-left: 2px solid #007acc;
+  border-right: 2px solid #007acc;
+  border-bottom: 2px solid #007acc;
+}
+
+/* Dashboard Header - Status Bar Style */
+.mcp-dashboard-header {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  cursor: pointer;
+  background: #007acc;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.mcp-dashboard-header:hover {
+  background: #0087d6;
+}
+
+.mcp-dashboard-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.mcp-dashboard-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mcp-dashboard-badge {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.mcp-dashboard-badge.mcp-attached {
+  background: rgba(46, 204, 113, 0.3);
+  color: #2ecc71;
+}
+
+.mcp-dashboard-clients {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.mcp-dashboard-divider {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.mcp-dashboard-calls,
+.mcp-dashboard-latency {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.mcp-dashboard-rate {
+  font-weight: 500;
+}
+
+.mcp-dashboard-rate.rate-good {
+  color: #7defa1;
+}
+
+.mcp-dashboard-rate.rate-warning {
+  color: #f5d76e;
+}
+
+.mcp-dashboard-rate.rate-error {
+  color: #f48771;
+}
+
+.mcp-dashboard-recording {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #ff6b6b;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mcp-dashboard-recording .recording-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff6b6b;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.mcp-dashboard-socket {
+  color: rgba(255, 255, 255, 0.5);
+  font-family: monospace;
+  font-size: 10px;
+}
+
+.mcp-dashboard-clear {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mcp-dashboard-clear:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.mcp-dashboard-branding {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.mcp-dashboard-toggle {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  transition: transform 0.25s ease;
+}
+
+/* Dashboard Content */
+.mcp-dashboard-content {
+  height: calc(100% - 24px);
+  overflow: hidden;
+  border-top: 1px solid #3c3c3c;
+}
+
+/* Cards View */
+.mcp-dashboard-cards {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 100%;
+  align-items: flex-start;
+}
+
+.mcp-dashboard-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #666;
+  font-size: 12px;
+  gap: 8px;
+}
+
+.mcp-dashboard-empty-icon {
+  font-size: 24px;
+  color: #444;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.mcp-dashboard-empty-hint {
+  font-size: 11px;
+  color: #555;
+}
+
+/* Client Card */
+.client-card {
+  flex: 0 0 auto;
+  width: 220px;
+  background: #2d2d2d;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.client-card:hover {
+  border-color: #4a4a4a;
+  background: #323232;
+}
+
+.client-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.client-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.client-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d4d4d4;
+}
+
+.client-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.client-card-detail {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-card-duration {
+  font-size: 10px;
+  color: #666;
+}
+
+.client-card-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #3c3c3c;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.client-card-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.client-card-stat {
+  color: #888;
+}
+
+.client-card-stat strong {
+  color: #d4d4d4;
+  font-weight: 500;
+}
+
+.client-card-stat.has-errors strong {
+  color: #f48771;
+}
+
+.client-card-stat.stat-latency {
+  color: #666;
+  font-size: 10px;
+}
+
+.client-card-last {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #666;
+  min-height: 16px;
+}
+
+.client-card-last-label {
+  color: #555;
+}
+
+.client-card-last-method {
+  color: #4ec9b0;
+  font-weight: 500;
+}
+
+.client-card-last-args {
+  color: #888;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-card-last-time {
+  color: #555;
+}
+
+.client-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.client-card-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 10px;
+  border: 1px solid;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.client-card-btn-details {
+  background: transparent;
+  border-color: #555;
+  color: #888;
+}
+
+.client-card-btn-details:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #666;
+  color: #d4d4d4;
+}
+
+.client-card-btn-disconnect {
+  background: transparent;
+  border-color: rgba(244, 135, 113, 0.3);
+  color: rgba(244, 135, 113, 0.7);
+}
+
+.client-card-btn-disconnect:hover {
+  background: rgba(244, 135, 113, 0.1);
+  border-color: #f48771;
+  color: #f48771;
+}
+
+/* Health Indicator */
+.health-indicator {
+  display: inline-block;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.health-healthy {
+  background: #2ecc71;
+  animation: healthPulse 2s ease-in-out infinite;
+}
+
+.health-idle {
+  background: #daa520;
+}
+
+.health-warning {
+  background: #f48771;
+  animation: healthPulse 1s ease-in-out infinite;
+}
+
+@keyframes healthPulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 4px 2px rgba(46, 204, 113, 0.2);
+  }
+}
+
+.health-warning {
+  animation-name: healthPulseWarning;
+}
+
+@keyframes healthPulseWarning {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(244, 135, 113, 0.4);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 4px 2px rgba(244, 135, 113, 0.2);
+  }
+}
+
+/* Mini Sparkline */
+.mini-sparkline {
+  flex-shrink: 0;
+}
+
+.mini-sparkline .sparkline-bar {
+  fill: #4ec9b0;
+}
+
+/* Client Drilldown */
+.client-drilldown {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.drilldown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #252526;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.drilldown-back {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.drilldown-back:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #d4d4d4;
+}
+
+.drilldown-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d4d4d4;
+}
+
+.drilldown-disconnect {
+  background: transparent;
+  border: 1px solid rgba(244, 135, 113, 0.3);
+  color: rgba(244, 135, 113, 0.7);
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.drilldown-disconnect:hover {
+  background: rgba(244, 135, 113, 0.1);
+  border-color: #f48771;
+  color: #f48771;
+}
+
+.drilldown-info {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #2a2a2a;
+  border-bottom: 1px solid #3c3c3c;
+  gap: 20px;
+}
+
+.drilldown-info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drilldown-info-row {
+  font-size: 11px;
+}
+
+.drilldown-label {
+  color: #666;
+  margin-right: 6px;
+}
+
+.drilldown-value {
+  color: #b4b4b4;
+}
+
+.drilldown-info-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.drilldown-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.drilldown-stat {
+  color: #888;
+}
+
+.drilldown-stat strong {
+  color: #d4d4d4;
+  font-weight: 500;
+}
+
+.drilldown-sparkline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drilldown-sparkline-label {
+  font-size: 10px;
+  color: #666;
+}
+
+.drilldown-history {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.drilldown-history-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  background: #252526;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.drilldown-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.drilldown-history-empty {
+  padding: 16px 12px;
+  text-align: center;
+  color: #666;
+  font-size: 11px;
+}
+
+.drilldown-history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  border-bottom: 1px solid rgba(45, 45, 45, 0.5);
+}
+
+.drilldown-history-item:last-child {
+  border-bottom: none;
+}
+
+.drilldown-history-item.history-error {
+  background: rgba(244, 135, 113, 0.05);
+}
+
+.history-time {
+  color: #666;
+  min-width: 60px;
+  font-size: 10px;
+}
+
+.history-tool {
+  color: #4ec9b0;
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.history-args {
+  color: #888;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-duration {
+  color: #666;
+  font-size: 10px;
+  min-width: 50px;
+  text-align: right;
+}
+
+.history-status {
+  min-width: 20px;
+  text-align: center;
+}
+
+.status-pending {
+  color: #daa520;
+}
+
+.status-success {
+  color: #4ec9b0;
+}
+
+.status-error {
+  color: #f48771;
+}
+
+.drilldown-history-error {
+  padding: 4px 12px 8px 84px;
+  font-size: 10px;
+  color: #f48771;
+  font-family: "JetBrainsMono Nerd Font", monospace;
+}
+
+/* Drilldown scrollbar */
+.drilldown-history-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.drilldown-history-list::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.drilldown-history-list::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 4px;
+}
+
+.drilldown-history-list::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+
+/* Dashboard Cards scrollbar */
+.mcp-dashboard-cards::-webkit-scrollbar {
+  height: 8px;
+}
+
+.mcp-dashboard-cards::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.mcp-dashboard-cards::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 4px;
+}
+
+.mcp-dashboard-cards::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+
+/* Disconnect Confirmation Dialog */
+.mcp-dashboard-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.mcp-dashboard-dialog {
+  background: #2d2d2d;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  min-width: 320px;
+  max-width: 400px;
+  overflow: hidden;
+}
+
+.mcp-dashboard-dialog-header {
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #d4d4d4;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.mcp-dashboard-dialog-body {
+  padding: 16px;
+}
+
+.mcp-dashboard-dialog-body p {
+  font-size: 13px;
+  color: #b4b4b4;
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.mcp-dashboard-dialog-body p:last-child {
+  margin-bottom: 0;
+}
+
+.mcp-dashboard-dialog-body strong {
+  color: #d4d4d4;
+}
+
+.mcp-dashboard-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #3c3c3c;
+  background: #252526;
+}
+
+.mcp-dashboard-dialog-btn {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.mcp-dashboard-dialog-btn-secondary {
+  background: #3c3c3c;
+  color: #d4d4d4;
+}
+
+.mcp-dashboard-dialog-btn-secondary:hover {
+  background: #4a4a4a;
+}
+
+.mcp-dashboard-dialog-btn-danger {
+  background: rgba(244, 135, 113, 0.2);
+  color: #f48771;
+  border: 1px solid rgba(244, 135, 113, 0.3);
+}
+
+.mcp-dashboard-dialog-btn-danger:hover {
+  background: rgba(244, 135, 113, 0.3);
+  border-color: #f48771;
+}
+

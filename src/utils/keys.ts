@@ -10,12 +10,17 @@ export const KEY_SEQUENCES: Record<string, string> = {
   "Escape": "\x1b",
   "Backspace": "\x7f",
   "Delete": "\x1b[3~",
+  "Space": " ",
 
-  // Arrow keys
+  // Arrow keys (with aliases)
   "ArrowUp": "\x1b[A",
   "ArrowDown": "\x1b[B",
   "ArrowRight": "\x1b[C",
   "ArrowLeft": "\x1b[D",
+  "Up": "\x1b[A",
+  "Down": "\x1b[B",
+  "Right": "\x1b[C",
+  "Left": "\x1b[D",
 
   // Navigation keys
   "Home": "\x1b[H",
@@ -73,6 +78,62 @@ export const KEY_SEQUENCES: Record<string, string> = {
 
   // Common shortcuts
   "Ctrl+Space": "\x00",
+
+  // Alt combinations (ESC + char)
+  "Alt+0": "\x1b0",
+  "Alt+1": "\x1b1",
+  "Alt+2": "\x1b2",
+  "Alt+3": "\x1b3",
+  "Alt+4": "\x1b4",
+  "Alt+5": "\x1b5",
+  "Alt+6": "\x1b6",
+  "Alt+7": "\x1b7",
+  "Alt+8": "\x1b8",
+  "Alt+9": "\x1b9",
+  "Alt+A": "\x1ba",
+  "Alt+B": "\x1bb",
+  "Alt+C": "\x1bc",
+  "Alt+D": "\x1bd",
+  "Alt+E": "\x1be",
+  "Alt+F": "\x1bf",
+  "Alt+G": "\x1bg",
+  "Alt+H": "\x1bh",
+  "Alt+I": "\x1bi",
+  "Alt+J": "\x1bj",
+  "Alt+K": "\x1bk",
+  "Alt+L": "\x1bl",
+  "Alt+M": "\x1bm",
+  "Alt+N": "\x1bn",
+  "Alt+O": "\x1bo",
+  "Alt+P": "\x1bp",
+  "Alt+Q": "\x1bq",
+  "Alt+R": "\x1br",
+  "Alt+S": "\x1bs",
+  "Alt+T": "\x1bt",
+  "Alt+U": "\x1bu",
+  "Alt+V": "\x1bv",
+  "Alt+W": "\x1bw",
+  "Alt+X": "\x1bx",
+  "Alt+Y": "\x1by",
+  "Alt+Z": "\x1bz",
+
+  // Alt+Arrow combinations
+  "Alt+Up": "\x1b[1;3A",
+  "Alt+Down": "\x1b[1;3B",
+  "Alt+Right": "\x1b[1;3C",
+  "Alt+Left": "\x1b[1;3D",
+
+  // Shift+Arrow combinations
+  "Shift+Up": "\x1b[1;2A",
+  "Shift+Down": "\x1b[1;2B",
+  "Shift+Right": "\x1b[1;2C",
+  "Shift+Left": "\x1b[1;2D",
+
+  // Ctrl+Arrow combinations
+  "Ctrl+Up": "\x1b[1;5A",
+  "Ctrl+Down": "\x1b[1;5B",
+  "Ctrl+Right": "\x1b[1;5C",
+  "Ctrl+Left": "\x1b[1;5D",
 };
 
 /**

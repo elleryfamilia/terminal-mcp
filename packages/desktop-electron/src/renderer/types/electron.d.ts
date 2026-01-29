@@ -72,7 +72,13 @@ export interface TerminalAPI {
   mcpAttach: (sessionId: string) => Promise<boolean>;
   mcpDetach: () => Promise<boolean>;
   mcpGetAttached: () => Promise<string | null>;
+  mcpGetClients: () => Promise<TrackedClient[]>;
   onMcpAttachmentChanged: (callback: (data: McpAttachmentChange) => void) => () => void;
+  onMcpToolCallStarted: (callback: (data: McpToolCallStarted) => void) => () => void;
+  onMcpToolCallCompleted: (callback: (data: McpToolCallCompleted) => void) => () => void;
+  onMcpClientConnected: (callback: (data: McpClientConnected) => void) => () => void;
+  onMcpClientDisconnected: (callback: (data: McpClientDisconnected) => void) => () => void;
+  mcpDisconnectClient: (clientId: string) => Promise<boolean>;
 
   // Sandbox mode
   setSandboxMode: (config: SandboxConfig) => Promise<void>;
@@ -106,6 +112,56 @@ export interface McpStatus {
   isRunning: boolean;
   clientCount: number;
   socketPath: string;
+}
+
+// MCP Activity Events
+export interface McpToolCallStarted {
+  id: number;
+  tool: string;
+  args?: Record<string, unknown>;
+  clientId: string;
+  timestamp: number;
+}
+
+export interface McpToolCallCompleted {
+  id: number;
+  tool: string;
+  success: boolean;
+  duration: number;
+  timestamp: number;
+  clientId: string;
+  error?: string;
+}
+
+export interface McpClientInfo {
+  name: string;
+  version: string;
+  instanceId?: string;
+}
+
+export interface McpRuntimeInfo {
+  hostApp?: string;
+  platform?: string;
+  arch?: string;
+}
+
+export interface McpClientConnected {
+  clientId: string;
+  clientInfo?: McpClientInfo;
+  runtime?: McpRuntimeInfo;
+  timestamp: number;
+}
+
+export interface McpClientDisconnected {
+  clientId: string;
+  timestamp: number;
+}
+
+export interface TrackedClient {
+  clientId: string;
+  clientInfo?: McpClientInfo;
+  runtime?: McpRuntimeInfo;
+  connectedAt: number;
 }
 
 declare global {

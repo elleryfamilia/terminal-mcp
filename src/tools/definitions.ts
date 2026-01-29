@@ -2,6 +2,8 @@
  * Shared tool definitions used by both MCP client and UI
  */
 
+import { getAvailableKeys } from "../utils/keys.js";
+
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -11,6 +13,9 @@ export interface ToolDefinition {
     required?: string[];
   };
 }
+
+// Get all available keys for the enum
+const availableKeys = getAvailableKeys();
 
 export const toolDefinitions: ToolDefinition[] = [
   {
@@ -29,14 +34,16 @@ export const toolDefinitions: ToolDefinition[] = [
   },
   {
     name: "sendKey",
-    description: "Send a special key to the terminal (e.g., enter, tab, ctrl+c)",
+    description:
+      "Send a special key or key combination to the terminal. Keys are case-insensitive.",
     inputSchema: {
       type: "object",
       properties: {
         key: {
           type: "string",
+          enum: availableKeys,
           description:
-            "The key to send (e.g., enter, tab, escape, up, down, left, right, ctrl+c, ctrl+d)",
+            "The key to send. Common keys: Enter, Tab, Escape, Backspace, Delete, Space, Up/Down/Left/Right (arrows), Home, End, PageUp, PageDown, F1-F12. Modifiers: Ctrl+A-Z, Alt+0-9, Alt+A-Z, Shift/Ctrl/Alt+Arrow keys.",
         },
       },
       required: ["key"],

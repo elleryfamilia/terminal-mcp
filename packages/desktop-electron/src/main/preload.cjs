@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld("terminalAPI", {
   mcpAttach: (sessionId) => ipcRenderer.invoke("mcp:attach", sessionId),
   mcpDetach: () => ipcRenderer.invoke("mcp:detach"),
   mcpGetAttached: () => ipcRenderer.invoke("mcp:getAttached"),
+  mcpGetClients: () => ipcRenderer.invoke("mcp:getClients"),
   onMcpAttachmentChanged: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("mcp:attachmentChanged", handler);
@@ -64,6 +65,35 @@ contextBridge.exposeInMainWorld("terminalAPI", {
       ipcRenderer.removeListener("mcp:attachmentChanged", handler);
     };
   },
+  onMcpToolCallStarted: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("mcp:toolCallStarted", handler);
+    return () => {
+      ipcRenderer.removeListener("mcp:toolCallStarted", handler);
+    };
+  },
+  onMcpToolCallCompleted: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("mcp:toolCallCompleted", handler);
+    return () => {
+      ipcRenderer.removeListener("mcp:toolCallCompleted", handler);
+    };
+  },
+  onMcpClientConnected: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("mcp:clientConnected", handler);
+    return () => {
+      ipcRenderer.removeListener("mcp:clientConnected", handler);
+    };
+  },
+  onMcpClientDisconnected: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("mcp:clientDisconnected", handler);
+    return () => {
+      ipcRenderer.removeListener("mcp:clientDisconnected", handler);
+    };
+  },
+  mcpDisconnectClient: (clientId) => ipcRenderer.invoke("mcp:disconnectClient", clientId),
 
   // Sandbox mode
   setSandboxMode: (config) => ipcRenderer.invoke("terminal:setSandboxMode", config),

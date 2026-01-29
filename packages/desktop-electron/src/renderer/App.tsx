@@ -8,12 +8,12 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { TitleBar } from "./components/TitleBar";
-import { StatusBar } from "./components/StatusBar";
 import { McpConflictDialog } from "./components/McpConflictDialog";
 import { McpDisconnectDialog } from "./components/McpDisconnectDialog";
 import { SandboxSettingsTooltip } from "./components/SandboxSettingsTooltip";
 import { ModeSelectionModal } from "./components/ModeSelectionModal";
 import { PaneContainer } from "./components/PaneContainer";
+import { McpDashboard } from "./components/mcp-dashboard";
 import type { SandboxConfig } from "./types/sandbox";
 import type { TabState, SplitDirection, PaneSandboxConfig } from "./types/pane";
 import { isTerminalPane, isPendingPane } from "./types/pane";
@@ -97,6 +97,14 @@ export function App() {
 
   // Sandbox settings tooltip
   const [sandboxTooltipConfig, setSandboxTooltipConfig] = useState<PaneSandboxConfig | null>(null);
+
+  // MCP dashboard state
+  const [mcpPanelExpanded, setMcpPanelExpanded] = useState(false);
+
+  // Toggle MCP dashboard panel
+  const toggleMcpPanel = useCallback(() => {
+    setMcpPanelExpanded((prev) => !prev);
+  }, []);
 
   // Helper to get the active tab
   const getActiveTab = useCallback(() => {
@@ -742,6 +750,7 @@ export function App() {
     return cleanup;
   }, [recordingSessionId]);
 
+
   // Get active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -837,12 +846,11 @@ export function App() {
           </div>
         )}
       </div>
-      <StatusBar
-        sessionId={focusedSessionId}
-        isRecording={focusedSessionId === recordingSessionId}
-        isConnected={activeTab?.isActive || false}
+      <McpDashboard
+        isExpanded={mcpPanelExpanded}
+        onToggle={toggleMcpPanel}
         mcpAttachedSessionId={mcpAttachedSessionId}
-        activeTabTitle={mcpTab?.title || null}
+        isRecording={focusedSessionId === recordingSessionId}
       />
       <McpConflictDialog
         isOpen={conflictDialog.isOpen}
