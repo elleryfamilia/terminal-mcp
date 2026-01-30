@@ -19,6 +19,7 @@ export interface Tab {
   title: string;
   sessionId: string;
   processName: string;
+  windowTitle?: string;
   isSandboxed: boolean;
   sandboxConfig?: PaneSandboxConfig;
   hasMultiplePanes: boolean;
@@ -104,8 +105,10 @@ export function TitleBar({
             // Multiple tabs - show tab bar
             tabs.map((tab) => {
               const isActive = tab.id === activeTabId;
+              // Icon is always derived from the actual PTY process
               const icon = getProcessIcon(tab.processName);
-              const displayName = getProcessDisplayName(tab.processName);
+              // Display text: use windowTitle if set, otherwise the process display name
+              const displayName = tab.windowTitle || getProcessDisplayName(tab.processName);
               // Show MCP in tab if:
               // - Inactive tab: any pane has MCP
               // - Active tab: focused pane has MCP
@@ -149,7 +152,7 @@ export function TitleBar({
                   {getProcessIcon(singleTab.processName)}
                 </span>
                 <span className="title-bar-single-name">
-                  {getProcessDisplayName(singleTab.processName)}
+                  {singleTab.windowTitle || getProcessDisplayName(singleTab.processName)}
                 </span>
               </div>
               {isSingleTerminal ? (

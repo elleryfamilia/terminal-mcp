@@ -196,6 +196,33 @@ export function updateTerminalProcessName(
 }
 
 /**
+ * Update the window title for a terminal pane by session ID
+ * The window title is the full OSC title text set by applications (e.g., Claude Code status)
+ */
+export function updateWindowTitle(
+  root: Pane,
+  sessionId: string,
+  windowTitle: string | undefined
+): Pane {
+  if (isTerminalPane(root)) {
+    if (root.sessionId === sessionId) {
+      return { ...root, windowTitle };
+    }
+    return root;
+  }
+
+  if (isPendingPane(root)) {
+    return root;
+  }
+
+  return {
+    ...root,
+    first: updateWindowTitle(root.first, sessionId, windowTitle),
+    second: updateWindowTitle(root.second, sessionId, windowTitle),
+  };
+}
+
+/**
  * Direction for navigation between panes
  */
 export type NavigationDirection = "left" | "right" | "up" | "down";

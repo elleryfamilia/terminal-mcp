@@ -14,6 +14,7 @@ interface TerminalPaneProps {
   paneId: string;
   sessionId: string;
   processName: string;
+  windowTitle?: string;
   isFocused: boolean;
   isVisible: boolean;
   hasMcp: boolean;
@@ -35,6 +36,7 @@ export function TerminalPane({
   paneId,
   sessionId,
   processName,
+  windowTitle,
   isFocused,
   isVisible,
   hasMcp,
@@ -71,6 +73,7 @@ export function TerminalPane({
       {showHeader && (
         <PaneHeader
           processName={processName}
+          windowTitle={windowTitle}
           isFocused={isFocused}
           hasMcp={hasMcp}
           isSandboxed={isSandboxed}

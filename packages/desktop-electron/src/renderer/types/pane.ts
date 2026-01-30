@@ -35,7 +35,8 @@ export interface TerminalPane {
   id: string;
   type: "terminal";
   sessionId: string;
-  processName: string; // For pane header display
+  processName: string; // Actual PTY process name (e.g., "zsh", "node")
+  windowTitle?: string; // Full OSC title text set by the application (optional)
   isSandboxed: boolean; // Whether this pane runs in a sandboxed environment
   sandboxConfig?: PaneSandboxConfig; // Sandbox settings if sandboxed
 }

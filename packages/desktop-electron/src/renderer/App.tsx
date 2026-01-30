@@ -32,6 +32,7 @@ import {
   getAllTerminalPanes,
   findAdjacentPane,
   updateTerminalProcessName,
+  updateWindowTitle,
   getFirstTerminalPane,
   findPaneById,
   getAdjacentTerminalPane,
@@ -965,6 +966,30 @@ export function App() {
     return cleanup;
   }, []);
 
+  // Listen for window title change events (OSC sequences from applications like Claude Code)
+  useEffect(() => {
+    const cleanup = window.terminalAPI.onMessage((message: unknown) => {
+      const msg = message as {
+        type: string;
+        sessionId?: string;
+        title?: string;
+      };
+      if (msg.type === "title-changed" && msg.sessionId) {
+        setTabs((prev) =>
+          prev.map((tab) => ({
+            ...tab,
+            rootPane: updateWindowTitle(
+              tab.rootPane,
+              msg.sessionId as string,
+              msg.title
+            ),
+          }))
+        );
+      }
+    });
+    return cleanup;
+  }, []);
+
   // Subscribe to recording changes and show toasts
   useEffect(() => {
     const cleanup = window.terminalAPI.onRecordingChanged((data) => {
@@ -1071,6 +1096,7 @@ export function App() {
       title: tab.title,
       sessionId: terminalPane?.sessionId || "",
       processName: terminalPane?.processName || "shell",
+      windowTitle: terminalPane?.windowTitle,
       isSandboxed: terminalPane?.isSandboxed || false,
       sandboxConfig: terminalPane?.sandboxConfig,
       hasMultiplePanes,

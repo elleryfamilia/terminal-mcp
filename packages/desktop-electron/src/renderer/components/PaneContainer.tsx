@@ -65,6 +65,7 @@ export function PaneContainer({
         paneId={pane.id}
         sessionId={pane.sessionId}
         processName={pane.processName}
+        windowTitle={pane.windowTitle}
         isFocused={pane.id === focusedPaneId}
         isVisible={isTabVisible}
         hasMcp={hasMcp}

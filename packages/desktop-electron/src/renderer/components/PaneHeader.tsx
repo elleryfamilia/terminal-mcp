@@ -19,6 +19,7 @@ import type { PaneSandboxConfig } from "../types/pane";
 
 interface PaneHeaderProps {
   processName: string;
+  windowTitle?: string;
   isFocused: boolean;
   hasMcp?: boolean;
   isSandboxed?: boolean;
@@ -33,6 +34,7 @@ interface PaneHeaderProps {
 
 export function PaneHeader({
   processName,
+  windowTitle,
   isFocused,
   hasMcp = false,
   isSandboxed = false,
@@ -44,8 +46,10 @@ export function PaneHeader({
   onRecordingToggle,
   onClose,
 }: PaneHeaderProps) {
+  // Icon is always derived from the actual PTY process
   const icon = getProcessIcon(processName);
-  const displayName = getProcessDisplayName(processName);
+  // Display text: use windowTitle if set, otherwise the process display name
+  const displayName = windowTitle || getProcessDisplayName(processName);
 
   const headerClasses = [
     "pane-header",

@@ -641,7 +641,7 @@ export class TerminalBridge {
     let lastOscTitle: string | null = null;
     let processCheckTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    // Forward output and detect process changes via OSC sequences
+    // Forward output and detect process/title changes via OSC sequences
     session.onData((data) => {
       // Forward to recording if this session is being recorded
       const recordingId = this.sessionRecordings.get(sessionId);
@@ -665,38 +665,34 @@ export class TerminalBridge {
         if (oscTitle !== null && oscTitle !== lastOscTitle) {
           lastOscTitle = oscTitle;
 
-          // Try to extract process name from OSC title
-          const processFromTitle = extractProcessFromTitle(oscTitle);
+          // Send the full window title for display
+          // (Applications like Claude Code set rich status text here)
+          this.window.webContents.send("terminal:message", {
+            type: "title-changed",
+            sessionId,
+            title: oscTitle,
+          });
 
-          if (processFromTitle && processFromTitle !== lastProcessName) {
-            lastProcessName = processFromTitle;
-            this.window.webContents.send("terminal:message", {
-              type: "process-changed",
-              sessionId,
-              process: processFromTitle,
-            });
-          } else if (!processFromTitle) {
-            // OSC title didn't contain a clear process name (e.g., user@host:path)
-            // Fall back to pty.process check
-            if (processCheckTimeout) {
-              clearTimeout(processCheckTimeout);
-            }
-            processCheckTimeout = setTimeout(() => {
-              try {
-                const currentProcess = session.getProcess();
-                if (currentProcess !== lastProcessName) {
-                  lastProcessName = currentProcess;
-                  this.window.webContents.send("terminal:message", {
-                    type: "process-changed",
-                    sessionId,
-                    process: currentProcess,
-                  });
-                }
-              } catch {
-                // Session may have been disposed
-              }
-            }, 50);
+          // Also check for process changes via PTY
+          // The process name is always derived from the actual PTY process
+          if (processCheckTimeout) {
+            clearTimeout(processCheckTimeout);
           }
+          processCheckTimeout = setTimeout(() => {
+            try {
+              const currentProcess = session.getProcess();
+              if (currentProcess !== lastProcessName) {
+                lastProcessName = currentProcess;
+                this.window.webContents.send("terminal:message", {
+                  type: "process-changed",
+                  sessionId,
+                  process: currentProcess,
+                });
+              }
+            } catch {
+              // Session may have been disposed
+            }
+          }, 50);
         } else if (oscTitle === null) {
           // No OSC sequence in this output chunk - debounced fallback check
           // This catches cases where the shell doesn't set OSC titles
