@@ -79,3 +79,30 @@ export { promptForMode } from "./sandbox/mode-prompt.js";
 export { promptForPermissions } from "./sandbox/prompt.js";
 export { SandboxController, loadConfigFromFile, DEFAULT_PERMISSIONS } from "./sandbox/index.js";
 export type { SandboxPermissions } from "./sandbox/index.js";
+
+// MCP Client Info types
+export {
+  ClientInfoSchema,
+  RuntimeInfoSchema,
+  CapabilitiesSchema,
+  SessionMetadataSchema,
+  ObservabilitySchema,
+  ExtendedClientInfoSchema,
+  generateClientId,
+} from "./types/mcp-client-info.js";
+export type {
+  ClientInfo,
+  RuntimeInfo,
+  Capabilities,
+  SessionMetadata,
+  Observability,
+  ExtendedClientInfo,
+  TrackedClient,
+  SessionLogEntry,
+  SessionConnectEntry,
+  SessionDisconnectEntry,
+  SessionToolCallEntry,
+} from "./types/mcp-client-info.js";
+
+// Session logging
+export { SessionLogger } from "./utils/session-logger.js";

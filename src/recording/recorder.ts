@@ -189,30 +189,59 @@ export class Recorder {
                        (this.mode === 'on-failure' && exitCode !== 0 && exitCode !== null);
 
     if (shouldSave) {
+      // Check if temp file exists before attempting to save
+      if (!fs.existsSync(this.tempPath)) {
+        // Temp file doesn't exist - recording may not have started properly or was cleaned up
+        return {
+          id: this.id,
+          path: '',
+          tempPath: this.tempPath,
+          startTime: this.startTime,
+          endTime,
+          durationMs,
+          bytesWritten: this.bytesWritten,
+          exitCode,
+          mode: this.mode,
+          saved: false,
+          stopReason: finalStopReason,
+        };
+      }
+
+      // Ensure output directory exists (defensive check for cases where dir was deleted during recording)
+      fs.mkdirSync(this.outputDir, { recursive: true });
+
       // Move temp file to final location
       try {
         fs.renameSync(this.tempPath, this.finalPath);
         finalPath = this.finalPath;
         saved = true;
       } catch (err) {
-        // If rename fails (cross-device), copy and delete
-        fs.copyFileSync(this.tempPath, this.finalPath);
-        fs.unlinkSync(this.tempPath);
-        finalPath = this.finalPath;
-        saved = true;
+        // If rename fails (cross-device), try copy and delete
+        try {
+          fs.copyFileSync(this.tempPath, this.finalPath);
+          fs.unlinkSync(this.tempPath);
+          finalPath = this.finalPath;
+          saved = true;
+        } catch (copyErr) {
+          // Both rename and copy failed - temp file may have been deleted
+          console.error('[recorder] Failed to save recording:', copyErr);
+          // Return with saved=false
+        }
       }
 
-      // Write metadata sidecar file
-      const metaPath = this.finalPath.replace(/\.cast$/, '.meta.json');
-      const meta = {
-        exitCode,
-        durationMs,
-        startTime: this.startTime,
-        endTime,
-        bytesWritten: this.bytesWritten,
-        stopReason: finalStopReason,
-      };
-      fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+      // Write metadata sidecar file only if recording was saved
+      if (saved) {
+        const metaPath = this.finalPath.replace(/\.cast$/, '.meta.json');
+        const meta = {
+          exitCode,
+          durationMs,
+          startTime: this.startTime,
+          endTime,
+          bytesWritten: this.bytesWritten,
+          stopReason: finalStopReason,
+        };
+        fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+      }
     } else {
       // Delete temp file
       try {

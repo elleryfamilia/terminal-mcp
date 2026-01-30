@@ -24,8 +24,17 @@ interface SocketResponse {
  * MCP Client Mode - connects to existing terminal socket and serves MCP over stdio
  */
 export async function startMcpClientMode(socketPath: string): Promise<void> {
+  console.error(`[mcp-client] Starting, connecting to ${socketPath}`);
+
   // Connect to the interactive terminal's socket
-  const socket = await connectToSocket(socketPath);
+  let socket: net.Socket;
+  try {
+    socket = await connectToSocket(socketPath);
+    console.error(`[mcp-client] Connected to socket`);
+  } catch (error) {
+    console.error(`[mcp-client] Failed to connect:`, error);
+    throw error;
+  }
 
   // Create MCP server
   const server = new Server(
@@ -137,8 +146,10 @@ export async function startMcpClientMode(socketPath: string): Promise<void> {
   });
 
   // Connect MCP server to stdio
+  console.error(`[mcp-client] Starting MCP server on stdio`);
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  console.error(`[mcp-client] MCP server connected and ready`);
 }
 
 /**

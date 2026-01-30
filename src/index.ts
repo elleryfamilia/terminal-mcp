@@ -232,8 +232,10 @@ async function main() {
   const socketPath = options.socket || DEFAULT_SOCKET_PATH;
   const isInteractive = process.stdin.isTTY;
 
-  // Prevent recursive invocation
-  if (process.env.TERMINAL_MCP === '1') {
+  // Prevent recursive invocation - only for interactive mode
+  // MCP client mode (non-TTY) is allowed from within a terminal-mcp session
+  // because it connects to a different socket as a proxy
+  if (process.env.TERMINAL_MCP === '1' && isInteractive) {
     console.error(
       'Error: terminal-mcp cannot be run from within itself.\n' +
       'You are already inside a terminal-mcp session.\n\n' +
