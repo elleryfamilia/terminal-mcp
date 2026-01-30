@@ -6,7 +6,7 @@
  * but exposes only specific, safe functionality to the renderer.
  */
 
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 // Type definitions for the exposed API
 export interface TerminalAPI {
@@ -48,6 +48,12 @@ export interface TerminalAPI {
   // Event listeners
   onMessage: (callback: (message: unknown) => void) => () => void;
   onWindowResize: (callback: () => void) => () => void;
+
+  // Shell utilities
+  openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
+
+  // File utilities
+  getPathForFile: (file: File) => string;
 }
 
 // Expose the API to the renderer
@@ -80,6 +86,12 @@ contextBridge.exposeInMainWorld("terminalAPI", {
       ipcRenderer.removeListener("window:resize", handler);
     };
   },
+
+  // Shell utilities
+  openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
+
+  // File utilities
+  getPathForFile: (file) => webUtils.getPathForFile(file),
 } satisfies TerminalAPI);
 
 // Type augmentation for the window object

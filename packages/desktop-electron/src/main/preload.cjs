@@ -6,7 +6,7 @@
  * but exposes only specific, safe functionality to the renderer.
  */
 
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 // Expose the API to the renderer
 contextBridge.exposeInMainWorld("terminalAPI", {
@@ -140,4 +140,10 @@ contextBridge.exposeInMainWorld("terminalAPI", {
 
   // Window management
   createWindow: () => ipcRenderer.invoke("window:create"),
+
+  // Shell utilities
+  openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
+
+  // File utilities (for drag and drop)
+  getPathForFile: (file) => webUtils.getPathForFile(file),
 });

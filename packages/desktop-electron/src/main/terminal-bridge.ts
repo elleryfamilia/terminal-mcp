@@ -6,7 +6,10 @@
  * works natively in Electron's main process).
  */
 
-import { ipcMain, type BrowserWindow } from "electron";
+import { ipcMain, shell, type BrowserWindow } from "electron";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 import {
   TerminalManager,
   GUIOutputStream,
@@ -394,25 +397,40 @@ export class TerminalBridge {
         return { success: false, error: "Already recording this session" };
       }
 
+      // Get the session to obtain dimensions
+      const session = this.manager.getSessionById(sessionId);
+      if (!session) {
+        return { success: false, error: "Session not found" };
+      }
+
       try {
         const recordingManager = this.manager.getRecordingManager();
         const recorder = recordingManager.createRecording({ mode: 'always' });
         const recordingId = recorder.id;
+        const outputDir = recordingManager.getDefaultOutputDir();
+
+        // Get terminal dimensions and start the recording
+        const dims = session.getDimensions();
+        recorder.start(dims.cols, dims.rows, {
+          SHELL: process.env.SHELL,
+          TERM: process.env.TERM || 'xterm-256color',
+        });
 
         // Store mapping
         this.sessionRecordings.set(sessionId, recordingId);
 
-        // Notify renderer
+        // Notify renderer with outputDir
         if (!this.disposed && this.window && !this.window.isDestroyed()) {
           this.window.webContents.send("terminal:recordingChanged", {
             sessionId,
             isRecording: true,
             recordingId,
+            outputDir,
           });
         }
 
         debug("Started recording for session:", sessionId, "recordingId:", recordingId);
-        return { success: true, recordingId };
+        return { success: true, recordingId, outputDir };
       } catch (error) {
         console.error("[terminal-bridge] Failed to start recording:", error);
         return {
@@ -423,7 +441,7 @@ export class TerminalBridge {
     });
 
     // Stop recording for a session
-    ipcMain.handle("terminal:stopRecording", async (_event, sessionId: string) => {
+    ipcMain.handle("terminal:stopRecording", async (_event, sessionId: string, stopReason: 'explicit' | 'inactivity' | 'max_duration' = 'explicit') => {
       if (!this.manager) {
         return { success: false, error: "No manager" };
       }
@@ -435,17 +453,20 @@ export class TerminalBridge {
 
       try {
         const recordingManager = this.manager.getRecordingManager();
-        const metadata = await recordingManager.finalizeRecording(recordingId, 0, 'explicit');
+        const metadata = await recordingManager.finalizeRecording(recordingId, 0, stopReason);
+        const outputDir = recordingManager.getDefaultOutputDir();
 
         // Remove mapping
         this.sessionRecordings.delete(sessionId);
 
-        // Notify renderer
+        // Notify renderer with enhanced info
         if (!this.disposed && this.window && !this.window.isDestroyed()) {
           this.window.webContents.send("terminal:recordingChanged", {
             sessionId,
             isRecording: false,
             filePath: metadata?.path,
+            outputDir,
+            stopReason,
           });
         }
 
@@ -453,6 +474,19 @@ export class TerminalBridge {
         return { success: true, filePath: metadata?.path };
       } catch (error) {
         console.error("[terminal-bridge] Failed to stop recording:", error);
+
+        // Remove mapping even on error to allow future recording attempts
+        this.sessionRecordings.delete(sessionId);
+
+        // Notify renderer of error
+        if (!this.disposed && this.window && !this.window.isDestroyed()) {
+          this.window.webContents.send("terminal:recordingChanged", {
+            sessionId,
+            isRecording: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
         return {
           success: false,
           error: error instanceof Error ? error.message : String(error),
@@ -468,6 +502,134 @@ export class TerminalBridge {
         recordingId: recordingId || undefined,
       };
     });
+
+    // Open folder containing a recording
+    ipcMain.handle("recordings:openFolder", async (_event, filePath: string) => {
+      try {
+        shell.showItemInFolder(filePath);
+        return { success: true };
+      } catch (error) {
+        console.error("[terminal-bridge] Failed to open folder:", error);
+        return { success: false };
+      }
+    });
+
+    // List all recordings
+    ipcMain.handle("recordings:list", async () => {
+      const outputDir = this.getRecordingsDir();
+      const recordings: Array<{
+        filename: string;
+        filePath: string;
+        size: number;
+        createdAt: number;
+        duration?: number;
+      }> = [];
+
+      try {
+        if (!fs.existsSync(outputDir)) {
+          return { recordings, outputDir };
+        }
+
+        const files = fs.readdirSync(outputDir);
+        const castFiles = files.filter((f) => f.endsWith('.cast'));
+
+        for (const filename of castFiles) {
+          const filePath = path.join(outputDir, filename);
+          try {
+            const stat = fs.statSync(filePath);
+            const metaPath = filePath.replace(/\.cast$/, '.meta.json');
+
+            let duration: number | undefined;
+            if (fs.existsSync(metaPath)) {
+              try {
+                const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+                duration = meta.durationMs;
+              } catch {
+                // Ignore meta read errors
+              }
+            }
+
+            recordings.push({
+              filename,
+              filePath,
+              size: stat.size,
+              createdAt: stat.birthtimeMs,
+              duration,
+            });
+          } catch {
+            // Skip files we can't stat
+          }
+        }
+
+        // Sort by creation time, newest first
+        recordings.sort((a, b) => b.createdAt - a.createdAt);
+
+        // Return last 20 recordings
+        return { recordings: recordings.slice(0, 20), outputDir };
+      } catch (error) {
+        console.error("[terminal-bridge] Failed to list recordings:", error);
+        return { recordings, outputDir };
+      }
+    });
+
+    // Delete a recording
+    ipcMain.handle("recordings:delete", async (_event, filePath: string) => {
+      try {
+        // Verify the file is in our recordings directory
+        const outputDir = this.getRecordingsDir();
+        if (!filePath.startsWith(outputDir)) {
+          return { success: false, error: "Invalid recording path" };
+        }
+
+        // Delete the recording file
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+
+        // Also delete the meta file if it exists
+        const metaPath = filePath.replace(/\.cast$/, '.meta.json');
+        if (fs.existsSync(metaPath)) {
+          fs.unlinkSync(metaPath);
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error("[terminal-bridge] Failed to delete recording:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    // Get recordings directory
+    ipcMain.handle("recordings:getDir", async () => {
+      return { outputDir: this.getRecordingsDir() };
+    });
+
+    // Open external URL in default browser (with protocol validation)
+    ipcMain.handle("shell:openExternal", async (_event, url: string) => {
+      try {
+        const parsed = new URL(url);
+        // Only allow http and https protocols for security
+        if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+          await shell.openExternal(url);
+          return { success: true };
+        }
+        return { success: false, error: "Invalid protocol - only http and https are allowed" };
+      } catch {
+        return { success: false, error: "Invalid URL" };
+      }
+    });
+  }
+
+  /**
+   * Get the recordings output directory
+   */
+  private getRecordingsDir(): string {
+    // Match the path used in terminal-mcp's RecordingManager
+    const xdgStateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
+    return path.join(xdgStateHome, "terminal-mcp", "recordings");
   }
 
   /**
@@ -481,6 +643,16 @@ export class TerminalBridge {
 
     // Forward output and detect process changes via OSC sequences
     session.onData((data) => {
+      // Forward to recording if this session is being recorded
+      const recordingId = this.sessionRecordings.get(sessionId);
+      if (recordingId && this.manager) {
+        const recordingManager = this.manager.getRecordingManager();
+        const recorder = recordingManager.getRecording(recordingId);
+        if (recorder && recorder.isActive()) {
+          recorder.recordOutput(data);
+        }
+      }
+
       if (!this.disposed && this.window && !this.window.isDestroyed()) {
         this.window.webContents.send("terminal:message", {
           type: "output",
@@ -569,6 +741,16 @@ export class TerminalBridge {
 
     // Forward resize
     session.onResize((cols, rows) => {
+      // Forward to recording if this session is being recorded
+      const recordingId = this.sessionRecordings.get(sessionId);
+      if (recordingId && this.manager) {
+        const recordingManager = this.manager.getRecordingManager();
+        const recorder = recordingManager.getRecording(recordingId);
+        if (recorder && recorder.isActive()) {
+          recorder.recordResize(cols, rows);
+        }
+      }
+
       if (!this.disposed && this.window && !this.window.isDestroyed()) {
         this.window.webContents.send("terminal:message", {
           type: "resize",
@@ -631,6 +813,11 @@ export class TerminalBridge {
     ipcMain.removeHandler("terminal:startRecording");
     ipcMain.removeHandler("terminal:stopRecording");
     ipcMain.removeHandler("terminal:getRecordingStatus");
+    ipcMain.removeHandler("recordings:openFolder");
+    ipcMain.removeHandler("recordings:list");
+    ipcMain.removeHandler("recordings:delete");
+    ipcMain.removeHandler("recordings:getDir");
+    ipcMain.removeHandler("shell:openExternal");
 
     // Clean up GUI stream
     if (this.clientId) {

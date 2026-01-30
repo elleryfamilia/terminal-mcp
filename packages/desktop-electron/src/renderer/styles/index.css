@@ -207,6 +207,13 @@ body,
   height: 100%;
 }
 
+/* Drag-over visual feedback for file drop */
+.terminal.drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background-color: rgba(0, 122, 204, 0.1);
+}
+
 .no-tabs {
   display: flex;
   flex-direction: column;
