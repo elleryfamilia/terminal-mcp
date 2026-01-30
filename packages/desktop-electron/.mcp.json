@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "terminal": {
+      "command": "/Users/ellery/_git/terminal-mcp-gui/packages/desktop-electron/mcp-wrapper.sh",
+      "args": ["--socket", "/tmp/terminal-mcp-gui.sock"]
+    }
+  }
+}
