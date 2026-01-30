@@ -5,6 +5,7 @@ import cliLogo from '../assets/cli_logo.svg';
 interface ModeSelectionModalProps {
   isOpen: boolean;
   onModeSelected: (mode: 'direct' | 'sandbox', config?: SandboxConfig) => void;
+  showLogo?: boolean;
 }
 
 // Single path permission
@@ -86,6 +87,7 @@ type NavTarget =
 export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
   isOpen,
   onModeSelected,
+  showLogo = false,
 }) => {
   const [selectedMode, setSelectedMode] = useState<'direct' | 'sandbox'>('direct');
   const [permissions, setPermissions] = useState<PermissionGroup[]>(getDefaultPermissions());
@@ -304,9 +306,9 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
     }
   }, [isOpen]);
 
-  // Fade in logo when modal opens
+  // Fade in logo when modal opens (only if showLogo is true)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && showLogo) {
       hasInteracted.current = false;
       setLogoFadingOut(false);
       // Small delay before fade in for smoother animation
@@ -318,7 +320,7 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
       setLogoVisible(false);
       setLogoFadingOut(false);
     }
-  }, [isOpen]);
+  }, [isOpen, showLogo]);
 
   // Handle user interaction - fade out logo
   const handleInteraction = () => {
@@ -465,9 +467,11 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
 
   return (
     <div className="mode-modal-overlay" onClick={handleInteraction} onKeyDown={handleInteraction}>
-      <div className={`cli-logo-container ${logoVisible ? 'visible' : ''} ${logoFadingOut ? 'fading-out' : ''}`}>
-        <img src={cliLogo} alt="Clutch Little Interface" className="cli-logo" />
-      </div>
+      {showLogo && (
+        <div className={`cli-logo-container ${logoVisible ? 'visible' : ''} ${logoFadingOut ? 'fading-out' : ''}`}>
+          <img src={cliLogo} alt="Clutch Little Interface" className="cli-logo" />
+        </div>
+      )}
       <div className="tui-mode-dialog" tabIndex={-1} ref={dialogRef}>
         <div className="tui-mode-content">
           <button

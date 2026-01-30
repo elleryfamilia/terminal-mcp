@@ -75,6 +75,9 @@ export function App() {
   // Mode selection modal state (for new tabs only)
   const [showModeModal, setShowModeModal] = useState(true);
 
+  // Track if this is the initial app launch (for logo display)
+  const isFirstLaunch = useRef(true);
+
   // Track which mode was selected for the pending tab creation
   const pendingTabModeRef = useRef<"direct" | "sandbox">("direct");
 
@@ -248,6 +251,10 @@ export function App() {
   // Handle mode selection from modal (for new tabs)
   const handleModeSelected = useCallback(
     async (mode: "direct" | "sandbox", config?: SandboxConfig) => {
+      const wasFirstLaunch = isFirstLaunch.current;
+      if (wasFirstLaunch) {
+        isFirstLaunch.current = false;
+      }
       setShowModeModal(false);
       pendingTabModeRef.current = mode;
       await createTabWithMode(mode, config);
@@ -1185,6 +1192,7 @@ export function App() {
       <ModeSelectionModal
         isOpen={showModeModal}
         onModeSelected={handleModeSelected}
+        showLogo={isFirstLaunch.current}
       />
       <SettingsPanel isOpen={showSettingsPanel} onClose={closeSettings} />
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
