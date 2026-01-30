@@ -94,6 +94,10 @@ export function Terminal({ sessionId, onClose, isVisible = true, isFocused = tru
   // Drag and drop state
   const [isDragOver, setIsDragOver] = useState(false);
 
+  // Scroll state for auto-hiding scrollbar
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Get settings and theme
   const { settings, theme } = useSettings();
 
@@ -494,6 +498,9 @@ export function Terminal({ sessionId, onClose, isVisible = true, isFocused = tru
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
       }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
       container?.removeEventListener("mousedown", handleMouseDown);
       webglAddonRef.current = null;
       canvasAddonRef.current = null;
@@ -597,6 +604,51 @@ export function Terminal({ sessionId, onClose, isVisible = true, isFocused = tru
       cleanup();
     };
   }, [handleResize]);
+
+  // Handle scroll detection for auto-hiding scrollbar
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const showScrollbar = () => {
+      setIsScrolling(true);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false);
+      }, 1000);
+    };
+
+    // Wheel events for trackpad/mouse wheel scrolling
+    const handleWheel = () => {
+      showScrollbar();
+    };
+
+    // Also detect scrollbar drag via mousedown on the scrollbar area
+    // and xterm viewport scroll events
+    const handleScroll = () => {
+      showScrollbar();
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: true });
+
+    // Listen for scroll events on the xterm viewport
+    const viewport = container.querySelector(".xterm-viewport");
+    if (viewport) {
+      viewport.addEventListener("scroll", handleScroll, { passive: true });
+    }
+
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+      if (viewport) {
+        viewport.removeEventListener("scroll", handleScroll);
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Handle visibility changes (tab switching)
   useEffect(() => {
@@ -753,7 +805,7 @@ export function Terminal({ sessionId, onClose, isVisible = true, isFocused = tru
   return (
     <div
       ref={containerRef}
-      className={`terminal${isDragOver ? " drag-over" : ""}`}
+      className={`terminal${isDragOver ? " drag-over" : ""}${isScrolling ? " scrolling" : ""}`}
       onContextMenu={handleContextMenu}
       style={{
         width: "100%",

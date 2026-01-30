@@ -360,21 +360,26 @@ body,
   text-align: center;
 }
 
-/* Scrollbar styling for xterm */
+/* Scrollbar styling for xterm - auto-hide, only visible when scrolling */
 .terminal ::-webkit-scrollbar {
   width: 10px;
 }
 
 .terminal ::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: transparent;
 }
 
 .terminal ::-webkit-scrollbar-thumb {
-  background: #424242;
+  background: transparent;
   border-radius: 5px;
+  transition: background 0.2s;
 }
 
-.terminal ::-webkit-scrollbar-thumb:hover {
+.terminal.scrolling ::-webkit-scrollbar-thumb {
+  background: #424242;
+}
+
+.terminal.scrolling ::-webkit-scrollbar-thumb:hover {
   background: #4f4f4f;
 }
 
@@ -632,12 +637,12 @@ body,
 }
 
 .resize-handle-horizontal {
-  width: 4px;
+  width: 1px;
   cursor: col-resize;
 }
 
 .resize-handle-vertical {
-  height: 4px;
+  height: 1px;
   cursor: row-resize;
 }
 
