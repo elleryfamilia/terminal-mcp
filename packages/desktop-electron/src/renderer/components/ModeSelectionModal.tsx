@@ -97,6 +97,7 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
   const [navTarget, setNavTarget] = useState<NavTarget>({ section: 'mode', index: 0 });
 
   const itemRefs = useRef<Map<string, HTMLDivElement | HTMLLabelElement | null>>(new Map());
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Build flat list of navigable items
   const getNavItems = (): NavTarget[] => {
@@ -287,6 +288,16 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, selectedMode, navTarget, permissions, currentNavIndex]);
 
+  // Focus the dialog when it opens
+  useEffect(() => {
+    if (isOpen && dialogRef.current) {
+      // Small delay to ensure the modal is rendered
+      setTimeout(() => {
+        dialogRef.current?.focus();
+      }, 10);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const toggleExpand = (groupIndex: number) => {
@@ -424,7 +435,7 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
 
   return (
     <div className="mode-modal-overlay">
-      <div className="tui-mode-dialog" tabIndex={-1}>
+      <div className="tui-mode-dialog" tabIndex={-1} ref={dialogRef}>
         <div className="tui-mode-content">
           <button
             ref={el => itemRefs.current.set('mode-0', el)}

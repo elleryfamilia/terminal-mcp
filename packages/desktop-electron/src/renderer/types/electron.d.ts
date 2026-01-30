@@ -2,6 +2,8 @@
  * Type declarations for Electron preload API
  */
 
+import type { AppSettings, SettingsUpdate } from '../settings/types';
+
 export interface SandboxConfig {
   filesystem: {
     readWrite: string[];
@@ -86,7 +88,7 @@ export interface TerminalAPI {
   // Recording
   startRecording: (
     sessionId: string
-  ) => Promise<{ success: boolean; recordingId?: string; error?: string }>;
+  ) => Promise<{ success: boolean; recordingId?: string; outputDir?: string; error?: string }>;
   stopRecording: (
     sessionId: string
   ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
@@ -94,6 +96,25 @@ export interface TerminalAPI {
     sessionId: string
   ) => Promise<{ isRecording: boolean; recordingId?: string }>;
   onRecordingChanged: (callback: (data: RecordingChange) => void) => () => void;
+
+  // Recording management
+  recordingsOpenFolder: (filePath: string) => Promise<{ success: boolean }>;
+  recordingsList: () => Promise<{ recordings: RecordingInfo[]; outputDir: string }>;
+  recordingsDelete: (filePath: string) => Promise<{ success: boolean; error?: string }>;
+  recordingsGetDir: () => Promise<{ outputDir: string }>;
+
+  // Settings
+  getSettings: () => Promise<AppSettings>;
+  updateSettings: (updates: SettingsUpdate) => Promise<AppSettings>;
+  resetSettings: () => Promise<AppSettings>;
+  setWindowOpacity: (opacity: number) => Promise<boolean>;
+  onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void;
+
+  // Menu events
+  onMenuPreferences: (callback: () => void) => () => void;
+
+  // Window management
+  createWindow: () => Promise<{ success: boolean }>;
 }
 
 export interface McpAttachmentChange {
@@ -106,6 +127,17 @@ export interface RecordingChange {
   isRecording: boolean;
   recordingId?: string;
   filePath?: string;
+  outputDir?: string;
+  error?: string;
+  stopReason?: 'explicit' | 'inactivity' | 'max_duration';
+}
+
+export interface RecordingInfo {
+  filename: string;
+  filePath: string;
+  size: number;
+  createdAt: number;
+  duration?: number;
 }
 
 export interface McpStatus {

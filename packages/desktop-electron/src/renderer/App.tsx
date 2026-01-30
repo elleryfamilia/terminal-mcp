@@ -14,6 +14,12 @@ import { SandboxSettingsTooltip } from "./components/SandboxSettingsTooltip";
 import { ModeSelectionModal } from "./components/ModeSelectionModal";
 import { PaneContainer } from "./components/PaneContainer";
 import { McpDashboard } from "./components/mcp-dashboard";
+import { ToastContainer } from "./components/ToastContainer";
+import type { ToastData } from "./components/Toast";
+import { ContextMenu } from "./components/ContextMenu";
+import type { ContextMenuGroup } from "./components/ContextMenu";
+import type { TerminalMethods } from "./components/Terminal";
+import { SettingsPanel } from "./settings";
 import type { SandboxConfig } from "./types/sandbox";
 import type { TabState, SplitDirection, PaneSandboxConfig } from "./types/pane";
 import { isTerminalPane, isPendingPane } from "./types/pane";
@@ -101,9 +107,54 @@ export function App() {
   // MCP dashboard state
   const [mcpPanelExpanded, setMcpPanelExpanded] = useState(false);
 
+  // Settings panel state
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+
+  // Toast notification state
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+  const toastIdCounter = useRef(0);
+
+  // Recording elapsed time state
+  const [recordingElapsed, setRecordingElapsed] = useState(0);
+
+  // Context menu state
+  interface ContextMenuState {
+    isOpen: boolean;
+    position: { x: number; y: number };
+    sessionId: string | null;
+    terminalMethods: TerminalMethods | null;
+  }
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    isOpen: false,
+    position: { x: 0, y: 0 },
+    sessionId: null,
+    terminalMethods: null,
+  });
+
   // Toggle MCP dashboard panel
   const toggleMcpPanel = useCallback(() => {
     setMcpPanelExpanded((prev) => !prev);
+  }, []);
+
+  // Open settings panel
+  const openSettings = useCallback(() => {
+    setShowSettingsPanel(true);
+  }, []);
+
+  // Close settings panel
+  const closeSettings = useCallback(() => {
+    setShowSettingsPanel(false);
+  }, []);
+
+  // Add a toast notification
+  const addToast = useCallback((toast: Omit<ToastData, 'id'>) => {
+    const id = `toast-${++toastIdCounter.current}`;
+    setToasts((prev) => [...prev, { ...toast, id }]);
+  }, []);
+
+  // Remove a toast notification
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   // Helper to get the active tab
@@ -620,13 +671,173 @@ export function App() {
     [recordingSessionId]
   );
 
+  // Handle context menu open
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, methods: TerminalMethods, sessionId: string) => {
+      setContextMenu({
+        isOpen: true,
+        position: { x: e.clientX, y: e.clientY },
+        sessionId,
+        terminalMethods: methods,
+      });
+    },
+    []
+  );
+
+  // Close context menu
+  const closeContextMenu = useCallback(() => {
+    setContextMenu((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  // Create new window
+  const createNewWindow = useCallback(async () => {
+    try {
+      await window.terminalAPI.createWindow();
+    } catch (err) {
+      console.error("Failed to create new window:", err);
+    }
+  }, []);
+
+  // Build context menu groups
+  const buildContextMenuGroups = useCallback((): ContextMenuGroup[] => {
+    const activeTab = getActiveTab();
+    const hasMultiplePanes = activeTab && !isTerminalPane(activeTab.rootPane);
+    const hasMcp = contextMenu.sessionId === mcpAttachedSessionId;
+    const isRecording = contextMenu.sessionId === recordingSessionId;
+    const hasSelection = contextMenu.terminalMethods?.hasSelection() ?? false;
+
+    return [
+      // Clipboard group
+      {
+        id: "clipboard",
+        items: [
+          {
+            id: "copy",
+            label: "Copy",
+            shortcut: isMac ? "\u2318C" : "Ctrl+C",
+            enabled: hasSelection,
+            onClick: () => contextMenu.terminalMethods?.copy(),
+          },
+          {
+            id: "paste",
+            label: "Paste",
+            shortcut: isMac ? "\u2318V" : "Ctrl+V",
+            onClick: () => contextMenu.terminalMethods?.paste(),
+          },
+          {
+            id: "selectAll",
+            label: "Select All",
+            shortcut: isMac ? "\u2318A" : "Ctrl+A",
+            onClick: () => contextMenu.terminalMethods?.selectAll(),
+          },
+          {
+            id: "clear",
+            label: "Clear",
+            shortcut: isMac ? "\u2318K" : "Ctrl+K",
+            onClick: () => contextMenu.terminalMethods?.clear(),
+          },
+        ],
+      },
+      // Pane group
+      {
+        id: "pane",
+        items: [
+          {
+            id: "splitRight",
+            label: "Split Right",
+            shortcut: isMac ? "\u2318D" : "Ctrl+D",
+            onClick: () => splitFocusedPane("horizontal"),
+          },
+          {
+            id: "splitDown",
+            label: "Split Down",
+            shortcut: isMac ? "\u21E7\u2318D" : "Ctrl+Shift+D",
+            onClick: () => splitFocusedPane("vertical"),
+          },
+          {
+            id: "closePane",
+            label: "Close Pane",
+            shortcut: isMac ? "\u2318W" : "Ctrl+W",
+            enabled: hasMultiplePanes,
+            onClick: () => closeFocusedPane(),
+          },
+        ],
+      },
+      // Tab/Window group
+      {
+        id: "tabWindow",
+        items: [
+          {
+            id: "newTab",
+            label: "New Tab",
+            shortcut: isMac ? "\u2318T" : "Ctrl+T",
+            onClick: () => requestNewTab(),
+          },
+          {
+            id: "newWindow",
+            label: "New Window",
+            shortcut: isMac ? "\u21E7\u2318N" : "Ctrl+Shift+N",
+            onClick: () => createNewWindow(),
+          },
+        ],
+      },
+      // Features group
+      {
+        id: "features",
+        items: [
+          {
+            id: "toggleRecording",
+            label: isRecording ? "Stop Recording" : "Start Recording",
+            indicator: "recording",
+            indicatorActive: isRecording,
+            onClick: () => {
+              if (contextMenu.sessionId) {
+                handleRecordingToggle(contextMenu.sessionId);
+              }
+            },
+          },
+          {
+            id: "toggleMcp",
+            label: hasMcp ? "Disconnect MCP" : "Connect MCP",
+            indicator: "mcp",
+            indicatorActive: hasMcp,
+            onClick: () => {
+              if (contextMenu.sessionId) {
+                handleMcpToggle(contextMenu.sessionId);
+              }
+            },
+          },
+        ],
+      },
+    ];
+  }, [
+    getActiveTab,
+    contextMenu.sessionId,
+    contextMenu.terminalMethods,
+    mcpAttachedSessionId,
+    recordingSessionId,
+    splitFocusedPane,
+    closeFocusedPane,
+    requestNewTab,
+    createNewWindow,
+    handleRecordingToggle,
+    handleMcpToggle,
+  ]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle shortcuts when modal is open
+      // Don't handle shortcuts when modal is open (except settings)
       if (showModeModal) return;
 
       const isMod = isMac ? e.metaKey : e.ctrlKey;
+
+      // Cmd+, - Open settings
+      if (isMod && e.key === ",") {
+        e.preventDefault();
+        openSettings();
+        return;
+      }
 
       // Cmd+T - New tab
       if (isMod && e.key === "t") {
@@ -688,6 +899,7 @@ export function App() {
     splitFocusedPane,
     navigateFocus,
     cycleFocus,
+    openSettings,
   ]);
 
   // Listen for session close events
@@ -714,6 +926,14 @@ export function App() {
     return cleanup;
   }, []);
 
+  // Listen for menu preferences event
+  useEffect(() => {
+    const cleanup = window.terminalAPI.onMenuPreferences(() => {
+      openSettings();
+    });
+    return cleanup;
+  }, [openSettings]);
+
   // Listen for process change events
   useEffect(() => {
     const cleanup = window.terminalAPI.onMessage((message: unknown) => {
@@ -738,16 +958,86 @@ export function App() {
     return cleanup;
   }, []);
 
-  // Subscribe to recording changes
+  // Subscribe to recording changes and show toasts
   useEffect(() => {
     const cleanup = window.terminalAPI.onRecordingChanged((data) => {
       if (data.isRecording) {
         setRecordingSessionId(data.sessionId);
-      } else if (data.sessionId === recordingSessionId) {
-        setRecordingSessionId(null);
+        // Show toast for recording started
+        addToast({
+          message: `Recording started`,
+          variant: 'info',
+          duration: 3000,
+        });
+      } else {
+        if (data.sessionId === recordingSessionId) {
+          setRecordingSessionId(null);
+        }
+
+        // Show toast based on outcome
+        if (data.error) {
+          addToast({
+            message: `Recording failed: ${data.error}`,
+            variant: 'error',
+            duration: 6000,
+          });
+        } else if (data.filePath) {
+          // Format stop reason message
+          let message = 'Recording saved';
+          if (data.stopReason === 'inactivity') {
+            message = 'Recording auto-saved (inactivity)';
+          } else if (data.stopReason === 'max_duration') {
+            message = 'Recording auto-saved (max duration)';
+          }
+
+          // Capture sessionId for the play action
+          const recordedSessionId = data.sessionId;
+          const filePath = data.filePath;
+
+          addToast({
+            message,
+            variant: 'success',
+            duration: 8000,
+            actions: [
+              {
+                label: 'Play',
+                onClick: () => {
+                  // Type the asciinema play command into the terminal
+                  const command = `asciinema play "${filePath}"\n`;
+                  window.terminalAPI.input(recordedSessionId, command);
+                },
+              },
+              {
+                label: 'Open Folder',
+                onClick: () => {
+                  window.terminalAPI.recordingsOpenFolder(filePath);
+                },
+              },
+            ],
+          });
+        } else {
+          // Recording stopped but wasn't saved (temp file missing or other issue)
+          addToast({
+            message: 'Recording stopped (not saved)',
+            variant: 'info',
+            duration: 4000,
+          });
+        }
       }
     });
     return cleanup;
+  }, [recordingSessionId, addToast]);
+
+  // Track recording elapsed time
+  useEffect(() => {
+    if (!recordingSessionId) {
+      setRecordingElapsed(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setRecordingElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
   }, [recordingSessionId]);
 
 
@@ -761,14 +1051,29 @@ export function App() {
       focusedPaneInTab && isTerminalPane(focusedPaneInTab)
         ? focusedPaneInTab
         : getFirstTerminalPane(tab.rootPane);
+    // Tab has multiple panes if rootPane is not a terminal pane (i.e., it's a split)
+    const hasMultiplePanes = !isTerminalPane(tab.rootPane);
+    // Check if ANY pane in this tab has MCP attached
+    const allPanes = getAllTerminalPanes(tab.rootPane);
+    const hasMcpSession = mcpAttachedSessionId !== null &&
+      allPanes.some((p) => p.sessionId === mcpAttachedSessionId);
+    // Check if the FOCUSED pane has MCP attached
+    const focusedPaneHasMcp = terminalPane?.sessionId === mcpAttachedSessionId;
     return {
       id: tab.id,
       title: tab.title,
       sessionId: terminalPane?.sessionId || "",
       processName: terminalPane?.processName || "shell",
       isSandboxed: terminalPane?.isSandboxed || false,
+      sandboxConfig: terminalPane?.sandboxConfig,
+      hasMultiplePanes,
+      hasMcpSession,
+      focusedPaneHasMcp,
     };
   });
+
+  // Check if we have exactly one terminal (one tab with a single terminal pane, not split)
+  const isSingleTerminal = tabs.length === 1 && activeTab && isTerminalPane(activeTab.rootPane);
 
   // Find which tab has the MCP-attached session
   const mcpTab = tabs.find((tab) => {
@@ -810,9 +1115,15 @@ export function App() {
           tabs={titleBarTabs}
           activeTabId={activeTabId}
           mcpAttachedSessionId={mcpAttachedSessionId}
+          recordingSessionId={recordingSessionId}
+          isSingleTerminal={!!isSingleTerminal}
           onTabSelect={selectTab}
           onTabClose={closeTab}
           onNewTab={requestNewTab}
+          onOpenSettings={openSettings}
+          onMcpToggle={handleMcpToggle}
+          onSandboxClick={handleSandboxClick}
+          onRecordingToggle={handleRecordingToggle}
         />
       )}
       <div className="terminal-container">
@@ -828,6 +1139,7 @@ export function App() {
               mcpAttachedSessionId={mcpAttachedSessionId}
               recordingSessionId={recordingSessionId}
               isSinglePane={isTerminalPane(tab.rootPane)}
+              hideHeader={!!isSingleTerminal && tab.id === activeTabId}
               onFocus={setFocusedPane}
               onSessionClose={handleSessionClose}
               onSplitRatioChange={handleSplitRatioChange}
@@ -836,6 +1148,7 @@ export function App() {
               onMcpToggle={handleMcpToggle}
               onSandboxClick={handleSandboxClick}
               onRecordingToggle={handleRecordingToggle}
+              onContextMenu={handleContextMenu}
             />
           </div>
         ))}
@@ -872,6 +1185,14 @@ export function App() {
       <ModeSelectionModal
         isOpen={showModeModal}
         onModeSelected={handleModeSelected}
+      />
+      <SettingsPanel isOpen={showSettingsPanel} onClose={closeSettings} />
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      <ContextMenu
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
+        groups={buildContextMenuGroups()}
+        onClose={closeContextMenu}
       />
     </div>
   );

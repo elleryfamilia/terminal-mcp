@@ -109,4 +109,35 @@ contextBridge.exposeInMainWorld("terminalAPI", {
       ipcRenderer.removeListener("terminal:recordingChanged", handler);
     };
   },
+
+  // Recording management
+  recordingsOpenFolder: (filePath) => ipcRenderer.invoke("recordings:openFolder", filePath),
+  recordingsList: () => ipcRenderer.invoke("recordings:list"),
+  recordingsDelete: (filePath) => ipcRenderer.invoke("recordings:delete", filePath),
+  recordingsGetDir: () => ipcRenderer.invoke("recordings:getDir"),
+
+  // Settings
+  getSettings: () => ipcRenderer.invoke("settings:get"),
+  updateSettings: (updates) => ipcRenderer.invoke("settings:update", updates),
+  resetSettings: () => ipcRenderer.invoke("settings:reset"),
+  setWindowOpacity: (opacity) => ipcRenderer.invoke("settings:setWindowOpacity", opacity),
+  onSettingsChanged: (callback) => {
+    const handler = (_event, settings) => callback(settings);
+    ipcRenderer.on("settings:changed", handler);
+    return () => {
+      ipcRenderer.removeListener("settings:changed", handler);
+    };
+  },
+
+  // Menu events
+  onMenuPreferences: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("menu:preferences", handler);
+    return () => {
+      ipcRenderer.removeListener("menu:preferences", handler);
+    };
+  },
+
+  // Window management
+  createWindow: () => ipcRenderer.invoke("window:create"),
 });

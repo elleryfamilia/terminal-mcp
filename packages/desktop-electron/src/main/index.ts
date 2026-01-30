@@ -12,6 +12,7 @@ import { TerminalBridge } from "./terminal-bridge.js";
 import { McpServer } from "./mcp-server.js";
 import { createMenu } from "./menu.js";
 import { getWindowState, trackWindowState } from "./window-state.js";
+import { initSettingsHandlers, getSettings } from "./settings-store.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +31,22 @@ async function createWindow() {
   // Get saved window state
   const windowState = getWindowState();
 
+  // Get saved settings for theme-based background color
+  const settings = getSettings();
+  // Map theme to background color (matching themes.ts)
+  const themeBackgrounds: Record<string, string> = {
+    'default-dark': '#1e1e1e',
+    'catppuccin-mocha': '#1e1e2e',
+    'catppuccin-latte': '#eff1f5',
+    'dracula': '#282a36',
+    'nord': '#2e3440',
+    'one-dark': '#282c34',
+    'solarized-dark': '#002b36',
+    'solarized-light': '#fdf6e3',
+    'aranaverse': '#0d0d1a',
+  };
+  const backgroundColor = themeBackgrounds[settings.appearance.theme] || '#1e1e1e';
+
   mainWindow = new BrowserWindow({
     x: windowState.x,
     y: windowState.y,
@@ -37,7 +54,7 @@ async function createWindow() {
     height: windowState.height,
     minWidth: 600,
     minHeight: 400,
-    backgroundColor: "#1e1e1e",
+    backgroundColor,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -105,6 +122,15 @@ async function createWindow() {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  // Initialize settings IPC handlers
+  initSettingsHandlers();
+
+  // IPC handler for creating new windows
+  ipcMain.handle("window:create", async () => {
+    await createWindow();
+    return { success: true };
+  });
+
   await createWindow();
 
   app.on("activate", async () => {

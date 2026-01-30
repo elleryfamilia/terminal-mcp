@@ -4,11 +4,15 @@
  * Unified title bar with tabs on macOS. Provides draggable area
  * and integrates tabs at the same level as window controls.
  * Shows MCP and sandbox status icons in tabs.
+ * When there's only one terminal (single tab, single pane), shows
+ * full status badges in the title bar instead of the pane header.
  */
 
 import { useCallback } from "react";
 import { getProcessIcon, getProcessDisplayName } from "../utils/processIcons";
-import { McpIcon, SandboxIcon } from "./icons";
+import { McpIcon, SandboxIcon, RecordIcon } from "./icons";
+import { StatusBadge } from "./StatusBadge";
+import type { PaneSandboxConfig } from "../types/pane";
 
 export interface Tab {
   id: string;
@@ -16,24 +20,40 @@ export interface Tab {
   sessionId: string;
   processName: string;
   isSandboxed: boolean;
+  sandboxConfig?: PaneSandboxConfig;
+  hasMultiplePanes: boolean;
+  hasMcpSession: boolean;
+  focusedPaneHasMcp: boolean;
 }
 
 interface TitleBarProps {
   tabs: Tab[];
   activeTabId: string | null;
   mcpAttachedSessionId: string | null;
+  recordingSessionId: string | null;
+  isSingleTerminal: boolean;
   onTabSelect: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
   onNewTab: () => void;
+  onOpenSettings?: () => void;
+  onMcpToggle?: (sessionId: string) => void;
+  onSandboxClick?: (config: PaneSandboxConfig) => void;
+  onRecordingToggle?: (sessionId: string) => void;
 }
 
 export function TitleBar({
   tabs,
   activeTabId,
   mcpAttachedSessionId,
+  recordingSessionId,
+  isSingleTerminal,
   onTabSelect,
   onTabClose,
   onNewTab,
+  onOpenSettings,
+  onMcpToggle,
+  onSandboxClick,
+  onRecordingToggle,
 }: TitleBarProps) {
   const handleTabClick = useCallback(
     (tabId: string, event: React.MouseEvent) => {
@@ -52,12 +72,12 @@ export function TitleBar({
     [onTabClose]
   );
 
-  const handleNewTabClick = useCallback(
+  const handleSettingsClick = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault();
-      onNewTab();
+      onOpenSettings?.();
     },
-    [onNewTab]
+    [onOpenSettings]
   );
 
   // Show tabs if 2+, otherwise show single process name centered
@@ -83,16 +103,20 @@ export function TitleBar({
           {showTabs ? (
             // Multiple tabs - show tab bar
             tabs.map((tab) => {
-              const hasMcp = tab.sessionId === mcpAttachedSessionId;
+              const isActive = tab.id === activeTabId;
               const icon = getProcessIcon(tab.processName);
               const displayName = getProcessDisplayName(tab.processName);
+              // Show MCP in tab if:
+              // - Inactive tab: any pane has MCP
+              // - Active tab: focused pane has MCP
+              const showMcpInTab = isActive ? tab.focusedPaneHasMcp : tab.hasMcpSession;
 
               return (
                 <div
                   key={tab.id}
-                  className={`title-tab ${tab.id === activeTabId ? "title-tab-active" : ""} ${hasMcp ? "title-tab-mcp" : ""}`}
+                  className={`title-tab ${isActive ? "title-tab-active" : ""}`}
                   onClick={(e) => handleTabClick(tab.id, e)}
-                  title={hasMcp ? `${displayName} (AI-controlled)` : displayName}
+                  title={tab.hasMcpSession ? `${displayName} (AI-controlled)` : displayName}
                 >
                   <button
                     className="title-tab-close"
@@ -106,39 +130,78 @@ export function TitleBar({
                     <span className="title-tab-text">{displayName}</span>
                     <span className="title-tab-status">
                       {tab.isSandboxed && <SandboxIcon size={11} className="title-tab-sandbox" />}
-                      {hasMcp && <McpIcon isActive={true} size={11} className="title-tab-mcp-icon" />}
+                      {showMcpInTab && (
+                        <span className="title-tab-mcp-label">
+                          <McpIcon isActive={true} size={11} />
+                          <span>MCP</span>
+                        </span>
+                      )}
                     </span>
                   </span>
                 </div>
               );
             })
           ) : singleTab ? (
-            // Single tab - show centered process name
-            <div className="title-bar-single">
-              <span className="title-bar-single-icon">
-                {getProcessIcon(singleTab.processName)}
-              </span>
-              <span className="title-bar-single-name">
-                {getProcessDisplayName(singleTab.processName)}
-              </span>
-              <span className="title-bar-single-status">
-                {singleTab.isSandboxed && <SandboxIcon size={12} className="title-bar-single-sandbox" />}
-                {singleTab.sessionId === mcpAttachedSessionId && (
-                  <McpIcon isActive={true} size={12} className="title-bar-single-mcp" />
-                )}
-              </span>
+            // Single tab - show centered process name with full status badges when single terminal
+            <div className={`title-bar-single ${isSingleTerminal ? 'title-bar-single-merged' : ''}`}>
+              <div className="title-bar-single-title">
+                <span className="title-bar-single-icon">
+                  {getProcessIcon(singleTab.processName)}
+                </span>
+                <span className="title-bar-single-name">
+                  {getProcessDisplayName(singleTab.processName)}
+                </span>
+              </div>
+              {isSingleTerminal ? (
+                // Full status badges when single terminal (merged with pane header)
+                <div className="title-bar-single-badges">
+                  {singleTab.isSandboxed && (
+                    <StatusBadge
+                      icon={<SandboxIcon size={12} />}
+                      label="Sandboxed"
+                      variant="sandbox"
+                      onClick={singleTab.sandboxConfig && onSandboxClick ? () => onSandboxClick(singleTab.sandboxConfig!) : undefined}
+                    />
+                  )}
+                  <StatusBadge
+                    icon={<McpIcon isActive={singleTab.hasMcpSession} size={12} />}
+                    label="MCP"
+                    variant={singleTab.hasMcpSession ? "mcp-active" : "mcp-inactive"}
+                    onClick={onMcpToggle ? () => onMcpToggle(singleTab.sessionId) : undefined}
+                  />
+                  <StatusBadge
+                    icon={<RecordIcon size={12} />}
+                    label={singleTab.sessionId === recordingSessionId ? "Recording" : undefined}
+                    variant={singleTab.sessionId === recordingSessionId ? "recording" : "recording-inactive"}
+                    onClick={onRecordingToggle ? () => onRecordingToggle(singleTab.sessionId) : undefined}
+                  />
+                </div>
+              ) : (
+                // Multiple panes - show MCP only if focused pane has it
+                <span className="title-bar-single-status">
+                  {singleTab.isSandboxed && <SandboxIcon size={12} className="title-bar-single-sandbox" />}
+                  {singleTab.focusedPaneHasMcp && (
+                    <span className="title-tab-mcp-label">
+                      <McpIcon isActive={true} size={12} />
+                      <span>MCP</span>
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
           ) : null}
         </div>
 
-        {/* New tab button - always visible */}
-        <button
-          className="title-bar-new-tab"
-          onClick={handleNewTabClick}
-          title="New terminal (Cmd+T)"
-        >
-          +
-        </button>
+        {/* Settings button */}
+        {onOpenSettings && (
+          <button
+            className="title-bar-settings"
+            onClick={handleSettingsClick}
+            title="Settings (Cmd+,)"
+          >
+            ⚙
+          </button>
+        )}
       </div>
     </div>
   );
