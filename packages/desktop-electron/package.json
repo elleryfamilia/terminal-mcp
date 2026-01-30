@@ -1,5 +1,6 @@
 {
   "name": "@ellery/terminal-mcp-desktop",
+  "productName": "Clutch Little Interface",
   "version": "0.1.0",
   "description": "Desktop GUI for terminal-mcp - A terminal emulator with MCP support",
   "author": "Ellery Familia",
@@ -43,8 +44,8 @@
     "vite": "^5.0.0"
   },
   "build": {
-    "appId": "com.ellery.terminal-mcp",
-    "productName": "Terminal MCP",
+    "appId": "com.ellery.clutch-little-interface",
+    "productName": "Clutch Little Interface",
     "directories": {
       "output": "release"
     },

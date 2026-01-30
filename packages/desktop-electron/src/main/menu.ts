@@ -178,7 +178,7 @@ export function createMenu(window: BrowserWindow): void {
         },
         { type: "separator" },
         {
-          label: "About Terminal MCP",
+          label: "About Clutch Little Interface",
           click: () => {
             window.webContents.send("menu:about");
           },

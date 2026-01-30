@@ -1075,6 +1075,35 @@ body,
   z-index: 2000;
 }
 
+/* CLI Logo above mode dialog */
+.cli-logo-container {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateY(50px);
+  opacity: 0;
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  pointer-events: none;
+}
+
+.cli-logo-container.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) translateY(0);
+}
+
+.cli-logo-container.fading-out {
+  opacity: 0;
+  transform: translate(-50%, -50%) translateY(-20px);
+  transition: opacity 0.4s ease-in, transform 0.4s ease-in;
+}
+
+.cli-logo {
+  max-width: 700px;
+  max-height: 300px;
+  width: auto;
+  height: auto;
+}
+
 /* Floating modal overlay for pending panes - positioned absolutely */
 .pending-modal-overlay {
   position: fixed;

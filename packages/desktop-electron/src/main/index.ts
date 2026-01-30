@@ -17,6 +17,9 @@ import { initSettingsHandlers, getSettings } from "./settings-store.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Set app name for menu bar (productName in build config only applies when packaged)
+app.setName("Clutch Little Interface");
+
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
 let terminalBridge: TerminalBridge | null = null;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { SandboxConfig, FilesystemAccess } from '../types/sandbox';
+import cliLogo from '../assets/cli_logo.svg';
 
 interface ModeSelectionModalProps {
   isOpen: boolean;
@@ -95,6 +96,11 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
 
   // Navigation state
   const [navTarget, setNavTarget] = useState<NavTarget>({ section: 'mode', index: 0 });
+
+  // Logo visibility state
+  const [logoVisible, setLogoVisible] = useState(false);
+  const [logoFadingOut, setLogoFadingOut] = useState(false);
+  const hasInteracted = useRef(false);
 
   const itemRefs = useRef<Map<string, HTMLDivElement | HTMLLabelElement | null>>(new Map());
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -298,6 +304,30 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
     }
   }, [isOpen]);
 
+  // Fade in logo when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      hasInteracted.current = false;
+      setLogoFadingOut(false);
+      // Small delay before fade in for smoother animation
+      const timer = setTimeout(() => {
+        setLogoVisible(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    } else {
+      setLogoVisible(false);
+      setLogoFadingOut(false);
+    }
+  }, [isOpen]);
+
+  // Handle user interaction - fade out logo
+  const handleInteraction = () => {
+    if (!hasInteracted.current && logoVisible) {
+      hasInteracted.current = true;
+      setLogoFadingOut(true);
+    }
+  };
+
   if (!isOpen) return null;
 
   const toggleExpand = (groupIndex: number) => {
@@ -434,7 +464,10 @@ export const ModeSelectionModal: React.FC<ModeSelectionModalProps> = ({
   };
 
   return (
-    <div className="mode-modal-overlay">
+    <div className="mode-modal-overlay" onClick={handleInteraction} onKeyDown={handleInteraction}>
+      <div className={`cli-logo-container ${logoVisible ? 'visible' : ''} ${logoFadingOut ? 'fading-out' : ''}`}>
+        <img src={cliLogo} alt="Clutch Little Interface" className="cli-logo" />
+      </div>
       <div className="tui-mode-dialog" tabIndex={-1} ref={dialogRef}>
         <div className="tui-mode-content">
           <button
