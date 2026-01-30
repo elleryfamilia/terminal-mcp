@@ -14,7 +14,6 @@ interface McpDashboardHeaderProps {
   onClear: () => void;
   mcpAttached: boolean;
   isRecording: boolean;
-  socketPath?: string;
 }
 
 export function McpDashboardHeader({
@@ -24,7 +23,6 @@ export function McpDashboardHeader({
   onClear,
   mcpAttached,
   isRecording,
-  socketPath,
 }: McpDashboardHeaderProps) {
   const getSuccessRateClass = () => {
     if (metrics.successRate >= 95) return 'rate-good';
@@ -80,13 +78,6 @@ export function McpDashboardHeader({
       </div>
 
       <div className="mcp-dashboard-header-right">
-        {/* Socket path */}
-        {socketPath && (
-          <span className="mcp-dashboard-socket" title={socketPath}>
-            {socketPath.split('/').pop()}
-          </span>
-        )}
-
         {/* Clear button when expanded */}
         {isExpanded && metrics.totalCalls > 0 && (
           <button
@@ -99,9 +90,6 @@ export function McpDashboardHeader({
             Clear
           </button>
         )}
-
-        {/* Branding */}
-        <span className="mcp-dashboard-branding">Terminal MCP</span>
 
         {/* Expand/collapse toggle */}
         <span className="mcp-dashboard-toggle">

@@ -5,9 +5,8 @@
  * Also serves as the status bar when collapsed.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import type { DashboardView } from './types';
-import type { McpStatus } from '../../types/electron';
 import { useEnhancedClients } from './useEnhancedClients';
 import { McpDashboardHeader } from './McpDashboardHeader';
 import { ClientCard } from './ClientCard';
@@ -33,14 +32,6 @@ export function McpDashboard({ isExpanded, onToggle, mcpAttachedSessionId, isRec
   const [view, setView] = useState<DashboardView>('cards');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState<string | null>(null);
-  const [mcpStatus, setMcpStatus] = useState<McpStatus | null>(null);
-
-  // Fetch MCP status
-  useEffect(() => {
-    window.terminalAPI.mcpGetStatus().then(setMcpStatus).catch(console.error);
-    const cleanup = window.terminalAPI.onMcpStatusChanged(setMcpStatus);
-    return cleanup;
-  }, []);
 
   const handleDetails = useCallback((clientId: string) => {
     setSelectedClientId(clientId);
@@ -89,7 +80,6 @@ export function McpDashboard({ isExpanded, onToggle, mcpAttachedSessionId, isRec
         onClear={clearHistory}
         mcpAttached={!!mcpAttachedSessionId}
         isRecording={isRecording}
-        socketPath={mcpStatus?.socketPath}
       />
 
       {isExpanded && (
@@ -98,11 +88,7 @@ export function McpDashboard({ isExpanded, onToggle, mcpAttachedSessionId, isRec
             <div className="mcp-dashboard-cards">
               {clients.size === 0 ? (
                 <div className="mcp-dashboard-empty">
-                  <span className="mcp-dashboard-empty-icon">◉</span>
-                  <span>No clients connected</span>
-                  <span className="mcp-dashboard-empty-hint">
-                    Waiting for AI assistants to connect...
-                  </span>
+                  <span className="mcp-dashboard-empty-text">No clients connected</span>
                 </div>
               ) : (
                 Array.from(clients.values()).map((client) => (

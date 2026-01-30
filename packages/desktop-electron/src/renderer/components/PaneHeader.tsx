@@ -24,9 +24,11 @@ interface PaneHeaderProps {
   isSandboxed?: boolean;
   sandboxConfig?: PaneSandboxConfig;
   isRecording?: boolean;
+  showCloseButton?: boolean;
   onMcpToggle?: () => void;
   onSandboxClick?: () => void;
   onRecordingToggle?: () => void;
+  onClose?: () => void;
 }
 
 export function PaneHeader({
@@ -36,9 +38,11 @@ export function PaneHeader({
   isSandboxed = false,
   sandboxConfig,
   isRecording = false,
+  showCloseButton = false,
   onMcpToggle,
   onSandboxClick,
   onRecordingToggle,
+  onClose,
 }: PaneHeaderProps) {
   const icon = getProcessIcon(processName);
   const displayName = getProcessDisplayName(processName);
@@ -51,8 +55,23 @@ export function PaneHeader({
     .filter(Boolean)
     .join(" ");
 
+  const handleCloseClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClose?.();
+  };
+
   return (
     <div className={headerClasses}>
+      {showCloseButton && (
+        <button
+          className="pane-header-close"
+          onClick={handleCloseClick}
+          title="Close pane"
+          type="button"
+        >
+          ×
+        </button>
+      )}
       <span className="pane-header-icon">{icon}</span>
       <span className="pane-header-name">{displayName}</span>
       <div className="pane-header-badges">
@@ -71,7 +90,7 @@ export function PaneHeader({
           onClick={onMcpToggle}
         />
         <StatusBadge
-          icon={<RecordIcon size={10} />}
+          icon={<RecordIcon size={12} />}
           label={isRecording ? "Recording" : undefined}
           variant={isRecording ? "recording" : "recording-inactive"}
           onClick={onRecordingToggle}

@@ -2,10 +2,9 @@
  * Status Bar Component
  *
  * Displays session status and other information at the bottom of the terminal window.
- * MCP info has been moved to the MCP Dashboard.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { McpStatus } from "../types/electron";
 
 interface StatusBarProps {
@@ -24,6 +23,7 @@ export function StatusBar({
   activeTabTitle,
 }: StatusBarProps) {
   const [mcpStatus, setMcpStatus] = useState<McpStatus | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Fetch initial MCP status and subscribe to changes
   useEffect(() => {
@@ -35,13 +35,26 @@ export function StatusBar({
     return cleanup;
   }, []);
 
+  // Copy socket path to clipboard
+  const handleCopySocketPath = useCallback(async () => {
+    if (mcpStatus?.socketPath) {
+      try {
+        await navigator.clipboard.writeText(mcpStatus.socketPath);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
+  }, [mcpStatus?.socketPath]);
+
   return (
     <div className="status-bar">
       <div className="status-bar-left">
         {/* Connection status */}
         <span className={`status-indicator ${isConnected ? "connected" : "disconnected"}`}>
           <span className="status-dot" />
-          {isConnected ? "Terminal" : "Disconnected"}
+          {isConnected ? "Connected" : "Disconnected"}
         </span>
 
         {/* Recording indicator */}
@@ -52,26 +65,29 @@ export function StatusBar({
           </span>
         )}
 
-        {/* MCP attachment indicator (simple) */}
+        {/* MCP attachment indicator */}
         {mcpAttachedSessionId && (
-          <span className="status-indicator mcp mcp-connected" title="MCP enabled">
-            <span className="mcp-icon active">MCP</span>
+          <span className="status-indicator mcp" title="MCP attached to terminal">
+            MCP Active
           </span>
         )}
       </div>
 
       <div className="status-bar-center">
-        {/* Socket path for connection */}
-        {mcpStatus?.isRunning && (
-          <span className="socket-path" title={`Connect: ${mcpStatus.socketPath}`}>
-            {mcpStatus.socketPath}
-          </span>
+        {/* Socket path - click to copy */}
+        {mcpStatus?.isRunning && mcpStatus.socketPath && (
+          <button
+            className="socket-path-btn"
+            onClick={handleCopySocketPath}
+            title={copied ? "Copied!" : `Click to copy: ${mcpStatus.socketPath}`}
+          >
+            {copied ? "Copied!" : mcpStatus.socketPath}
+          </button>
         )}
       </div>
 
       <div className="status-bar-right">
-        {/* Terminal MCP branding */}
-        <span className="branding">Terminal MCP</span>
+        {/* Could add more status info here */}
       </div>
     </div>
   );
