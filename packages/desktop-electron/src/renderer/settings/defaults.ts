@@ -21,6 +21,7 @@ export const defaultSettings: AppSettings = {
     cursorBlink: true,
     scrollbackLines: 5000,
     bellSound: false,
+    setLocaleEnv: false,
   },
   advanced: {
     gpuAcceleration: true,

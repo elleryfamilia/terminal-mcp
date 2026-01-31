@@ -255,6 +255,15 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 updateSettings({ terminal: { bellSound } })
               }
             />
+
+            <ToggleControl
+              label="Forward LC_CTYPE"
+              description="Also set LC_CTYPE (in addition to LANG). May cause SSH locale errors on remote servers. Keep off to match iTerm2 behavior."
+              value={settings.terminal.setLocaleEnv}
+              onChange={(setLocaleEnv) =>
+                updateSettings({ terminal: { setLocaleEnv } })
+              }
+            />
           </SettingsSection>
 
           {/* Advanced Section */}

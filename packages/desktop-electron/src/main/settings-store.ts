@@ -57,6 +57,13 @@ interface AppSettings {
     cursorBlink: boolean;
     scrollbackLines: number;
     bellSound: boolean;
+    /**
+     * Also set LC_CTYPE in addition to LANG.
+     * When false (default), only LANG is set, matching iTerm2 behavior.
+     * When true, also sets LC_CTYPE which may cause SSH locale errors
+     * on remote servers (SSH forwards LC_* via SendEnv).
+     */
+    setLocaleEnv: boolean;
   };
   advanced: {
     gpuAcceleration: boolean;
@@ -87,6 +94,7 @@ const defaultSettings: AppSettings = {
     cursorBlink: true,
     scrollbackLines: 5000,
     bellSound: false,
+    setLocaleEnv: false,
   },
   advanced: {
     gpuAcceleration: true,

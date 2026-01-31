@@ -93,6 +93,7 @@ export class TerminalManager {
       cwd: options.cwd ?? this.options.cwd,
       env: options.env ?? this.options.env,
       nativeShell: this.options.nativeShell,
+      setLocaleEnv: this.options.setLocaleEnv,
       sandboxController: this.sandboxController,
     });
 

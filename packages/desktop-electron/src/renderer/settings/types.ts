@@ -102,6 +102,12 @@ export interface AppSettings {
     cursorBlink: boolean;
     scrollbackLines: number;
     bellSound: boolean;
+    /**
+     * Also set LC_CTYPE in addition to LANG.
+     * When false (default), only LANG is set, matching iTerm2 behavior.
+     * When true, also sets LC_CTYPE which may cause SSH locale errors.
+     */
+    setLocaleEnv: boolean;
   };
   advanced: {
     gpuAcceleration: boolean;

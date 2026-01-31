@@ -9,7 +9,7 @@
  * registered globally in index.ts and dispatch to the appropriate bridge.
  */
 
-import { shell, type BrowserWindow } from "electron";
+import { shell, Notification, type BrowserWindow } from "electron";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -21,6 +21,7 @@ import {
   type ManagedSession,
   type SandboxPermissions,
 } from "@ellery/terminal-mcp";
+import { getSettings } from "./settings-store.js";
 
 // Log for debugging
 const debug = (msg: string, ...args: unknown[]) => {
@@ -96,6 +97,88 @@ function isUsefulTitle(title: string): boolean {
 
   // Everything else is useful (shell names, process names, AI status, etc.)
   return true;
+}
+
+/**
+ * Parse OSC 9 and OSC 777 notification sequences from terminal output.
+ * These are used by programs to send desktop notifications.
+ *
+ * Format:
+ * - OSC 9: ESC ] 9 ; <message> BEL - Simple notification
+ * - OSC 777: ESC ] 777 ; notify ; <title> ; <body> BEL - Rich notification with title
+ */
+interface TerminalNotification {
+  title?: string;
+  body: string;
+}
+
+function parseOscNotification(data: string): TerminalNotification | null {
+  // OSC 9: Simple notification - \x1b]9;message\x07 or \x1b]9;message\x1b\\
+  const osc9Regex = /\x1b\]9;([^\x07\x1b]*?)(?:\x07|\x1b\\)/;
+  const osc9Match = osc9Regex.exec(data);
+  if (osc9Match) {
+    return {
+      body: osc9Match[1],
+    };
+  }
+
+  // OSC 777: Rich notification - \x1b]777;notify;title;body\x07 or \x1b]777;notify;title;body\x1b\\
+  const osc777Regex = /\x1b\]777;notify;([^;]*);([^\x07\x1b]*?)(?:\x07|\x1b\\)/;
+  const osc777Match = osc777Regex.exec(data);
+  if (osc777Match) {
+    return {
+      title: osc777Match[1],
+      body: osc777Match[2],
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Parse OSC 133 shell integration sequences from terminal output.
+ * These mark command boundaries for navigation and visual indicators.
+ *
+ * Format: ESC ] 133 ; <code> [; <params>] BEL
+ * - A: Prompt start
+ * - B: Prompt end / command input start
+ * - C: Command executed / output start
+ * - D [; exitcode]: Command finished
+ */
+interface CommandMark {
+  type: 'prompt-start' | 'command-start' | 'output-start' | 'command-end';
+  exitCode?: number;
+}
+
+function parseOsc133(data: string): CommandMark[] {
+  const marks: CommandMark[] = [];
+  const regex = /\x1b\]133;([ABCD])(?:;(\d+))?(?:\x07|\x1b\\)/g;
+
+  let match;
+  while ((match = regex.exec(data)) !== null) {
+    const code = match[1];
+    const param = match[2];
+
+    switch (code) {
+      case 'A':
+        marks.push({ type: 'prompt-start' });
+        break;
+      case 'B':
+        marks.push({ type: 'command-start' });
+        break;
+      case 'C':
+        marks.push({ type: 'output-start' });
+        break;
+      case 'D':
+        marks.push({
+          type: 'command-end',
+          exitCode: param !== undefined ? parseInt(param, 10) : undefined,
+        });
+        break;
+    }
+  }
+
+  return marks;
 }
 
 // Import type only to avoid circular dependency
@@ -184,9 +267,11 @@ export class TerminalBridge {
     try {
       // Create manager if not exists
       if (!this.manager) {
+        const settings = getSettings();
         debug("Creating new TerminalManager", {
           useSandboxMode: this.useSandboxMode,
           hasSandboxController: !!this.sandboxController,
+          setLocaleEnv: settings.terminal.setLocaleEnv,
         });
         this.manager = new TerminalManager({
           cols: options?.cols ?? 120,
@@ -195,6 +280,8 @@ export class TerminalBridge {
           cwd: options?.cwd,
           // Use native shell in Electron - no custom prompt, user's normal config
           nativeShell: true,
+          // Only set locale env vars if explicitly enabled (avoids SSH locale issues)
+          setLocaleEnv: settings.terminal.setLocaleEnv,
           // Pass sandbox controller if sandbox mode is enabled
           sandboxController: this.useSandboxMode ? this.sandboxController ?? undefined : undefined,
         });
@@ -777,6 +864,37 @@ export class TerminalBridge {
               // Session may have been disposed
             }
           }, 100);
+        }
+
+        // Check for OSC 9/777 notification sequences
+        const notification = parseOscNotification(data);
+        if (notification && Notification.isSupported()) {
+          // Only show notification when window is not focused
+          if (!this.window.isFocused()) {
+            const n = new Notification({
+              title: notification.title || 'Terminal',
+              body: notification.body,
+              silent: false,
+            });
+            n.on('click', () => {
+              // Focus the window when notification is clicked
+              this.window.show();
+              this.window.focus();
+            });
+            n.show();
+          }
+        }
+
+        // Check for OSC 133 shell integration sequences
+        const marks = parseOsc133(data);
+        if (marks.length > 0) {
+          for (const mark of marks) {
+            this.window.webContents.send("terminal:message", {
+              type: "command-mark",
+              sessionId,
+              mark,
+            });
+          }
         }
       }
     });
