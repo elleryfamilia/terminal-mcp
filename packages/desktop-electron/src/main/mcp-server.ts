@@ -4,14 +4,13 @@
  * Creates a Unix socket server for MCP clients (AI assistants) to connect to.
  * Tracks connection state, captures client info, and exposes terminal tools.
  * Emits activity events for GUI observability panel.
+ *
+ * This is an app-scoped singleton - one MCP server shared across all windows.
+ * Uses WindowManager to broadcast events to all windows.
  */
 
 import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
 import { Server as NetServer, Socket } from "net";
-import { ipcMain, type BrowserWindow } from "electron";
-import type { TerminalManager } from "@ellery/terminal-mcp";
 import {
   type TrackedClient,
   type ExtendedClientInfo,
@@ -24,6 +23,9 @@ import { SessionLogger } from "@ellery/terminal-mcp";
 import {
   getKeySequence,
 } from "@ellery/terminal-mcp";
+
+// Import WindowManager type for broadcasting
+import type { WindowManager } from "./window-manager.js";
 
 interface SocketRequest {
   id: number;
@@ -87,16 +89,15 @@ export class McpServer {
   private server: NetServer | null = null;
   private connectedClients: Set<Socket> = new Set();
   private clientInfoMap: Map<Socket, TrackedClient> = new Map();
-  private window: BrowserWindow;
-  private manager: TerminalManager | null = null;
+  private windowManager: WindowManager;
   private socketPath: string;
   private attachedSessionId: string | null = null;
   private sessionLogger: SessionLogger | null = null;
 
-  constructor(window: BrowserWindow) {
-    this.window = window;
+  constructor(windowManager: WindowManager) {
+    this.windowManager = windowManager;
     this.socketPath = getDefaultSocketPath();
-    this.setupIpcHandlers();
+    // Note: IPC handlers are now registered globally in index.ts
 
     // Clean up stale session log files from previous crashes
     SessionLogger.cleanupStale().then((count) => {
@@ -107,17 +108,28 @@ export class McpServer {
   }
 
   /**
+   * Find a session by ID across all windows
+   */
+  private findSession(sessionId: string) {
+    for (const managed of this.windowManager.getAllWindows()) {
+      const manager = managed.bridge.getManager();
+      if (manager) {
+        const session = manager.getSessionById(sessionId);
+        if (session) {
+          return session;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Attach MCP to a specific session
    */
   attach(sessionId: string): boolean {
-    if (!this.manager) {
-      console.log("[mcp-server] Cannot attach: no manager");
-      return false;
-    }
-
-    const session = this.manager.getSessionById(sessionId);
+    const session = this.findSession(sessionId);
     if (!session) {
-      console.log(`[mcp-server] Cannot attach: session ${sessionId} not found`);
+      console.log(`[mcp-server] Cannot attach: session ${sessionId} not found in any window`);
       return false;
     }
 
@@ -161,12 +173,7 @@ export class McpServer {
     this.detach();
   }
 
-  /**
-   * Set the terminal manager (called after manager is created)
-   */
-  setManager(manager: TerminalManager): void {
-    this.manager = manager;
-  }
+  // Note: setManager removed - McpServer now searches across all windows via findSession()
 
   /**
    * Start the MCP socket server
@@ -317,42 +324,7 @@ export class McpServer {
     };
   }
 
-  /**
-   * Set up IPC handlers for renderer
-   */
-  private setupIpcHandlers(): void {
-    ipcMain.handle("mcp:getStatus", () => this.getStatus());
-    ipcMain.handle("mcp:start", () => {
-      this.start();
-      return this.getStatus();
-    });
-    ipcMain.handle("mcp:stop", () => {
-      this.stop();
-      return this.getStatus();
-    });
-
-    // Attachment handlers
-    ipcMain.handle("mcp:attach", (_event, sessionId: string) => {
-      return this.attach(sessionId);
-    });
-    ipcMain.handle("mcp:detach", () => {
-      this.detach();
-      return true;
-    });
-    ipcMain.handle("mcp:getAttached", () => {
-      return this.attachedSessionId;
-    });
-
-    // Client info handler
-    ipcMain.handle("mcp:getClients", () => {
-      return this.getConnectedClients();
-    });
-
-    // Disconnect a specific client
-    ipcMain.handle("mcp:disconnectClient", (_event, clientId: string) => {
-      return this.disconnectClient(clientId);
-    });
-  }
+  // Note: IPC handlers are now registered globally in index.ts
 
   /**
    * Disconnect a specific client by clientId
@@ -370,27 +342,23 @@ export class McpServer {
   }
 
   /**
-   * Notify renderer of connection changes
+   * Notify all windows of connection changes
    */
   private notifyConnectionChange(): void {
-    if (!this.window.isDestroyed()) {
-      this.window.webContents.send("mcp:statusChanged", this.getStatus());
-    }
+    this.windowManager.broadcast("mcp:statusChanged", this.getStatus());
   }
 
   /**
-   * Notify renderer of attachment changes
+   * Notify all windows of attachment changes
    */
   private notifyAttachmentChange(
     newSessionId: string | null,
     previousSessionId: string | null
   ): void {
-    if (!this.window.isDestroyed()) {
-      this.window.webContents.send("mcp:attachmentChanged", {
-        attachedSessionId: newSessionId,
-        previousSessionId,
-      });
-    }
+    this.windowManager.broadcast("mcp:attachmentChanged", {
+      attachedSessionId: newSessionId,
+      previousSessionId,
+    });
   }
 
   /**
@@ -415,16 +383,12 @@ export class McpServer {
       return this.handleInitialize(request, socket, trackedClient);
     }
 
-    if (!this.manager) {
-      return { id, error: { message: "Terminal manager not initialized" } };
-    }
-
     // Check if we have an attached session for tool methods
     if (!this.attachedSessionId) {
       return { id, error: { message: "No terminal attached. Enable MCP on a terminal tab first." } };
     }
 
-    const session = this.manager.getSessionById(this.attachedSessionId);
+    const session = this.findSession(this.attachedSessionId);
     if (!session) {
       return { id, error: { message: `Attached session ${this.attachedSessionId} not found` } };
     }
@@ -571,7 +535,7 @@ export class McpServer {
   }
 
   /**
-   * Emit tool call started event via IPC
+   * Emit tool call started event to all windows
    */
   private emitToolCallStarted(
     id: number,
@@ -579,8 +543,6 @@ export class McpServer {
     args: Record<string, unknown> | undefined,
     clientId: string
   ): void {
-    if (this.window.isDestroyed()) return;
-
     const event: McpToolCallStarted = {
       id,
       tool,
@@ -589,11 +551,11 @@ export class McpServer {
       timestamp: Date.now(),
     };
 
-    this.window.webContents.send("mcp:toolCallStarted", event);
+    this.windowManager.broadcast("mcp:toolCallStarted", event);
   }
 
   /**
-   * Emit tool call completed event via IPC
+   * Emit tool call completed event to all windows
    */
   private emitToolCallCompleted(
     id: number,
@@ -603,8 +565,6 @@ export class McpServer {
     error: string | undefined,
     clientId: string
   ): void {
-    if (this.window.isDestroyed()) return;
-
     const event: McpToolCallCompleted = {
       id,
       tool,
@@ -615,7 +575,7 @@ export class McpServer {
       error,
     };
 
-    this.window.webContents.send("mcp:toolCallCompleted", event);
+    this.windowManager.broadcast("mcp:toolCallCompleted", event);
 
     // Also log to session file
     this.sessionLogger?.log({
@@ -630,14 +590,10 @@ export class McpServer {
   }
 
   /**
-   * Emit client connected event via IPC
+   * Emit client connected event to all windows
    */
   private emitClientConnected(client: TrackedClient): void {
     console.log("[mcp-server] emitClientConnected called for:", client.clientId);
-    if (this.window.isDestroyed()) {
-      console.log("[mcp-server] Window is destroyed, skipping emit");
-      return;
-    }
 
     const event: McpClientConnected = {
       clientId: client.clientId,
@@ -646,22 +602,20 @@ export class McpServer {
       timestamp: Date.now(),
     };
 
-    console.log("[mcp-server] Sending mcp:clientConnected event:", event);
-    this.window.webContents.send("mcp:clientConnected", event);
+    console.log("[mcp-server] Broadcasting mcp:clientConnected event:", event);
+    this.windowManager.broadcast("mcp:clientConnected", event);
   }
 
   /**
-   * Emit client disconnected event via IPC
+   * Emit client disconnected event to all windows
    */
   private emitClientDisconnected(clientId: string): void {
-    if (this.window.isDestroyed()) return;
-
     const event: McpClientDisconnected = {
       clientId,
       timestamp: Date.now(),
     };
 
-    this.window.webContents.send("mcp:clientDisconnected", event);
+    this.windowManager.broadcast("mcp:clientDisconnected", event);
   }
 
   /**
@@ -678,13 +632,6 @@ export class McpServer {
    */
   dispose(): void {
     this.stop();
-    ipcMain.removeHandler("mcp:getStatus");
-    ipcMain.removeHandler("mcp:start");
-    ipcMain.removeHandler("mcp:stop");
-    ipcMain.removeHandler("mcp:attach");
-    ipcMain.removeHandler("mcp:detach");
-    ipcMain.removeHandler("mcp:getAttached");
-    ipcMain.removeHandler("mcp:getClients");
-    ipcMain.removeHandler("mcp:disconnectClient");
+    // Note: IPC handlers are registered globally in index.ts
   }
 }

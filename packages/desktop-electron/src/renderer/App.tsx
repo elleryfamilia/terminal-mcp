@@ -50,6 +50,10 @@ interface ConflictDialogState {
 // Detect macOS for title bar styling
 const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
+// Check if this is the first window (for logo display)
+// This is passed via URL query param from the main process
+const isFirstAppWindow = new URLSearchParams(window.location.search).get("isFirstWindow") === "true";
+
 // Calculate terminal dimensions based on window size
 function calculateTerminalSize() {
   const charWidth = 9;
@@ -76,8 +80,9 @@ export function App() {
   // Mode selection modal state (for new tabs only)
   const [showModeModal, setShowModeModal] = useState(true);
 
-  // Track if this is the initial app launch (for logo display)
-  const isFirstLaunch = useRef(true);
+  // Track if this is the initial terminal creation in this window (for logo display)
+  // Logo only shows on first terminal of first window
+  const hasCreatedFirstTerminal = useRef(false);
 
   // Track which mode was selected for the pending tab creation
   const pendingTabModeRef = useRef<"direct" | "sandbox">("direct");
@@ -252,10 +257,7 @@ export function App() {
   // Handle mode selection from modal (for new tabs)
   const handleModeSelected = useCallback(
     async (mode: "direct" | "sandbox", config?: SandboxConfig) => {
-      const wasFirstLaunch = isFirstLaunch.current;
-      if (wasFirstLaunch) {
-        isFirstLaunch.current = false;
-      }
+      hasCreatedFirstTerminal.current = true;
       setShowModeModal(false);
       pendingTabModeRef.current = mode;
       await createTabWithMode(mode, config);
@@ -378,13 +380,17 @@ export function App() {
     setTabs((prev) => {
       const newTabs = prev.filter((t) => t.id !== tabId);
 
+      // If no more tabs, close the window
+      if (newTabs.length === 0) {
+        window.close();
+        return newTabs;
+      }
+
       setActiveTabId((currentActiveTabId) => {
         if (currentActiveTabId === tabId && newTabs.length > 0) {
           const closedIndex = prev.findIndex((t) => t.id === tabId);
           const newActiveIndex = Math.min(closedIndex, newTabs.length - 1);
           return newTabs[newActiveIndex].id;
-        } else if (newTabs.length === 0) {
-          return null;
         }
         return currentActiveTabId;
       });
@@ -784,7 +790,7 @@ export function App() {
           {
             id: "newWindow",
             label: "New Window",
-            shortcut: isMac ? "\u21E7\u2318N" : "Ctrl+Shift+N",
+            shortcut: isMac ? "\u2318N" : "Ctrl+N",
             onClick: () => createNewWindow(),
           },
         ],
@@ -1218,7 +1224,7 @@ export function App() {
       <ModeSelectionModal
         isOpen={showModeModal}
         onModeSelected={handleModeSelected}
-        showLogo={isFirstLaunch.current}
+        showLogo={isFirstAppWindow && !hasCreatedFirstTerminal.current}
       />
       <SettingsPanel isOpen={showSettingsPanel} onClose={closeSettings} />
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

@@ -220,6 +220,13 @@ export function Terminal({ sessionId, onClose, isVisible = true, isFocused = tru
 
       const isMod = isMac ? event.metaKey : event.ctrlKey;
 
+      // Shift+Enter - insert newline (useful for multi-line input)
+      if (event.shiftKey && event.key === "Enter" && !isMod) {
+        event.preventDefault();
+        window.terminalAPI.input(sessionId, "\n").catch(console.error);
+        return false;
+      }
+
       // Cmd/Ctrl+C - smart copy/SIGINT
       if (isMod && event.key === "c" && !event.shiftKey) {
         if (xterm.hasSelection()) {

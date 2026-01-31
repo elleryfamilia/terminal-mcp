@@ -2,125 +2,241 @@
  * Electron Main Process
  *
  * Entry point for the Terminal MCP desktop application.
- * Manages window creation and terminal bridge lifecycle.
+ * Manages window lifecycle through WindowManager.
+ *
+ * Architecture:
+ * - WindowManager: Manages multiple windows, each with its own TerminalBridge
+ * - McpServer: App-scoped singleton, shared across all windows
+ * - IPC handlers: Registered once at app level, dispatch to appropriate bridge
  */
 
 import { app, BrowserWindow, ipcMain, shell } from "electron";
-import * as path from "path";
-import { fileURLToPath } from "url";
-import { TerminalBridge } from "./terminal-bridge.js";
-import { McpServer } from "./mcp-server.js";
+import { WindowManager } from "./window-manager.js";
 import { createMenu } from "./menu.js";
-import { getWindowState, trackWindowState } from "./window-state.js";
-import { initSettingsHandlers, getSettings } from "./settings-store.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { initSettingsHandlers } from "./settings-store.js";
 
 // Set app name for menu bar (productName in build config only applies when packaged)
 app.setName("Clutch Little Interface");
 
-// Keep a global reference of the window object
-let mainWindow: BrowserWindow | null = null;
-let terminalBridge: TerminalBridge | null = null;
-let mcpServer: McpServer | null = null;
+// Global window manager
+let windowManager: WindowManager | null = null;
 
-// Development mode check - only use dev server if explicitly set
-// When running `npm run start`, we use built files
-// When running `npm run dev`, we use Vite dev server
-const isDev = process.env.ELECTRON_DEV === "true";
+/**
+ * Register all IPC handlers for terminal operations.
+ * These are registered once at app startup and dispatch to the appropriate
+ * TerminalBridge based on the event sender's window.
+ */
+function registerIpcHandlers(wm: WindowManager): void {
+  // ==========================================
+  // Terminal IPC handlers (window-scoped)
+  // ==========================================
 
-async function createWindow() {
-  // Get saved window state
-  const windowState = getWindowState();
-
-  // Get saved settings for theme-based background color
-  const settings = getSettings();
-  // Map theme to background color (matching themes.ts)
-  const themeBackgrounds: Record<string, string> = {
-    'default-dark': '#1e1e1e',
-    'catppuccin-mocha': '#1e1e2e',
-    'catppuccin-latte': '#eff1f5',
-    'dracula': '#282a36',
-    'nord': '#2e3440',
-    'one-dark': '#282c34',
-    'solarized-dark': '#002b36',
-    'solarized-light': '#fdf6e3',
-    'aranaverse': '#0d0d1a',
-  };
-  const backgroundColor = themeBackgrounds[settings.appearance.theme] || '#1e1e1e';
-
-  mainWindow = new BrowserWindow({
-    x: windowState.x,
-    y: windowState.y,
-    width: windowState.width,
-    height: windowState.height,
-    minWidth: 600,
-    minHeight: 400,
-    backgroundColor,
-    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: false, // Required for node-pty in main process
-    },
+  ipcMain.handle("terminal:create", async (event, options) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.createSession(options);
   });
 
-  // Track window state changes for persistence
-  trackWindowState(mainWindow);
-
-  // Create terminal bridge
-  terminalBridge = new TerminalBridge(mainWindow);
-
-  // Create and start MCP server for AI assistant connections
-  mcpServer = new McpServer(mainWindow);
-  mcpServer.start();
-
-  // Link terminal bridge to MCP server for session attachment coordination
-  terminalBridge.setMcpServer(mcpServer);
-
-  // Link MCP server to terminal bridge's manager (after first session is created)
-  // This is done via the terminal bridge getter
-  terminalBridge.onManagerReady((manager) => {
-    mcpServer?.setManager(manager);
+  ipcMain.handle("terminal:input", (event, sessionId: string, data: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.input(sessionId, data);
   });
 
-  // Set up application menu
-  createMenu(mainWindow);
-
-  // Load the renderer
-  if (isDev) {
-    // In development, load from Vite dev server
-    await mainWindow.loadURL("http://localhost:5173");
-    mainWindow.webContents.openDevTools();
-  } else {
-    // In production, load from built files
-    await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
-  }
-
-  // Handle external links
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: "deny" };
+  ipcMain.handle("terminal:resize", (event, sessionId: string, cols: number, rows: number) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.resize(sessionId, cols, rows);
   });
 
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-    if (terminalBridge) {
-      terminalBridge.dispose();
-      terminalBridge = null;
-    }
-    if (mcpServer) {
-      mcpServer.dispose();
-      mcpServer = null;
-    }
+  ipcMain.handle("terminal:getContent", (event, sessionId: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.getContent(sessionId);
   });
 
-  // Handle window resize
-  mainWindow.on("resize", () => {
-    mainWindow?.webContents.send("window:resize");
+  ipcMain.handle("terminal:close", (event, sessionId: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.closeSession(sessionId);
   });
+
+  ipcMain.handle("terminal:isActive", (event, sessionId: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return false;
+    return bridge.isActive(sessionId);
+  });
+
+  ipcMain.handle("terminal:list", (event) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { sessions: [] };
+    return bridge.listSessions();
+  });
+
+  ipcMain.handle("terminal:getProcess", (event, sessionId: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.getProcess(sessionId);
+  });
+
+  ipcMain.handle("terminal:setSandboxMode", async (event, config) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.setSandboxMode(config);
+  });
+
+  // ==========================================
+  // Recording IPC handlers (window-scoped)
+  // ==========================================
+
+  ipcMain.handle("terminal:startRecording", async (event, sessionId: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.startRecording(sessionId);
+  });
+
+  ipcMain.handle("terminal:stopRecording", async (event, sessionId: string, stopReason) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.stopRecording(sessionId, stopReason);
+  });
+
+  ipcMain.handle("terminal:getRecordingStatus", (event, sessionId: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { isRecording: false };
+    return bridge.getRecordingStatus(sessionId);
+  });
+
+  ipcMain.handle("recordings:openFolder", async (event, filePath: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false };
+    return bridge.openRecordingFolder(filePath);
+  });
+
+  ipcMain.handle("recordings:list", async (event) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { recordings: [], outputDir: "" };
+    return bridge.listRecordings();
+  });
+
+  ipcMain.handle("recordings:delete", async (event, filePath: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.deleteRecording(filePath);
+  });
+
+  ipcMain.handle("recordings:getDir", async (event) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { outputDir: "" };
+    return { outputDir: bridge.getRecordingsDir() };
+  });
+
+  // ==========================================
+  // Shell utilities (window-scoped)
+  // ==========================================
+
+  ipcMain.handle("shell:openExternal", async (event, url: string) => {
+    const bridge = wm.getBridge(event.sender);
+    if (!bridge) return { success: false, error: "Window not found" };
+    return bridge.openExternal(url);
+  });
+
+  // ==========================================
+  // MCP IPC handlers (app-scoped)
+  // ==========================================
+
+  ipcMain.handle("mcp:getStatus", () => {
+    const mcpServer = wm.getMcpServer();
+    return mcpServer?.getStatus() ?? { isRunning: false, clientCount: 0, socketPath: "" };
+  });
+
+  ipcMain.handle("mcp:start", () => {
+    const mcpServer = wm.getMcpServer();
+    mcpServer?.start();
+    return mcpServer?.getStatus() ?? { isRunning: false, clientCount: 0, socketPath: "" };
+  });
+
+  ipcMain.handle("mcp:stop", () => {
+    const mcpServer = wm.getMcpServer();
+    mcpServer?.stop();
+    return mcpServer?.getStatus() ?? { isRunning: false, clientCount: 0, socketPath: "" };
+  });
+
+  ipcMain.handle("mcp:attach", (_event, sessionId: string) => {
+    const mcpServer = wm.getMcpServer();
+    return mcpServer?.attach(sessionId) ?? false;
+  });
+
+  ipcMain.handle("mcp:detach", () => {
+    const mcpServer = wm.getMcpServer();
+    mcpServer?.detach();
+    return true;
+  });
+
+  ipcMain.handle("mcp:getAttached", () => {
+    const mcpServer = wm.getMcpServer();
+    return mcpServer?.getAttachedSessionId() ?? null;
+  });
+
+  ipcMain.handle("mcp:getClients", () => {
+    const mcpServer = wm.getMcpServer();
+    return mcpServer?.getConnectedClients() ?? [];
+  });
+
+  ipcMain.handle("mcp:disconnectClient", (_event, clientId: string) => {
+    const mcpServer = wm.getMcpServer();
+    return mcpServer?.disconnectClient(clientId) ?? false;
+  });
+
+  // ==========================================
+  // Window IPC handlers
+  // ==========================================
+
+  ipcMain.handle("window:create", async () => {
+    await wm.createWindow();
+    return { success: true };
+  });
+}
+
+/**
+ * Remove all IPC handlers (for cleanup)
+ */
+function removeIpcHandlers(): void {
+  // Terminal handlers
+  ipcMain.removeHandler("terminal:create");
+  ipcMain.removeHandler("terminal:input");
+  ipcMain.removeHandler("terminal:resize");
+  ipcMain.removeHandler("terminal:getContent");
+  ipcMain.removeHandler("terminal:close");
+  ipcMain.removeHandler("terminal:isActive");
+  ipcMain.removeHandler("terminal:list");
+  ipcMain.removeHandler("terminal:getProcess");
+  ipcMain.removeHandler("terminal:setSandboxMode");
+
+  // Recording handlers
+  ipcMain.removeHandler("terminal:startRecording");
+  ipcMain.removeHandler("terminal:stopRecording");
+  ipcMain.removeHandler("terminal:getRecordingStatus");
+  ipcMain.removeHandler("recordings:openFolder");
+  ipcMain.removeHandler("recordings:list");
+  ipcMain.removeHandler("recordings:delete");
+  ipcMain.removeHandler("recordings:getDir");
+
+  // Shell handlers
+  ipcMain.removeHandler("shell:openExternal");
+
+  // MCP handlers
+  ipcMain.removeHandler("mcp:getStatus");
+  ipcMain.removeHandler("mcp:start");
+  ipcMain.removeHandler("mcp:stop");
+  ipcMain.removeHandler("mcp:attach");
+  ipcMain.removeHandler("mcp:detach");
+  ipcMain.removeHandler("mcp:getAttached");
+  ipcMain.removeHandler("mcp:getClients");
+  ipcMain.removeHandler("mcp:disconnectClient");
+
+  // Window handlers
+  ipcMain.removeHandler("window:create");
 }
 
 // App lifecycle
@@ -128,18 +244,22 @@ app.whenReady().then(async () => {
   // Initialize settings IPC handlers
   initSettingsHandlers();
 
-  // IPC handler for creating new windows
-  ipcMain.handle("window:create", async () => {
-    await createWindow();
-    return { success: true };
-  });
+  // Create window manager
+  windowManager = new WindowManager();
 
-  await createWindow();
+  // Register all IPC handlers once at app startup
+  registerIpcHandlers(windowManager);
+
+  // Set up application menu (uses WindowManager for "New Window" and routing)
+  createMenu(windowManager);
+
+  // Create the first window
+  await windowManager.createWindow();
 
   app.on("activate", async () => {
-    // On macOS, re-create window when dock icon is clicked
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await createWindow();
+    // On macOS, re-create window when dock icon is clicked and no windows are open
+    if (BrowserWindow.getAllWindows().length === 0 && windowManager) {
+      await windowManager.createWindow();
     }
   });
 });
@@ -152,13 +272,12 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  if (terminalBridge) {
-    terminalBridge.dispose();
+  if (windowManager) {
+    windowManager.dispose();
+    windowManager = null;
   }
+  removeIpcHandlers();
 });
 
-// Handle IPC messages from renderer
-// These are set up in terminal-bridge.ts
-
 // Export for testing
-export { createWindow };
+export { windowManager };
