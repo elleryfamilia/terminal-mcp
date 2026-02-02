@@ -13,6 +13,13 @@ Terminal MCP exposes seven MCP tools for interacting with the terminal. This doc
 | [`clear`](#clear) | Clear the terminal screen |
 | [`startRecording`](#startrecording) | Start recording terminal output |
 | [`stopRecording`](#stoprecording) | Stop recording and save file |
+| [`createSession`](#createsession) | Create a new terminal session |
+| [`listSessions`](#listsessions) | List all active sessions |
+| [`destroySession`](#destroysession) | Destroy a session by ID |
+
+### Multi-Session Support
+
+The tools `type`, `sendKey`, `getContent`, and `takeScreenshot` accept an optional `sessionId` parameter. When omitted, a default session is automatically created and used.
 
 ---
 
@@ -517,6 +524,91 @@ If recording already finalized:
 
 ---
 
+## createSession
+
+Create a new terminal session.
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `shell` | string | No | System default | Shell to use |
+| `cols` | number | No | `120` | Terminal width in columns |
+| `rows` | number | No | `40` | Terminal height in rows |
+
+### Returns
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\n  \"sessionId\": \"a7k2x\",\n  \"shell\": \"/bin/zsh\",\n  \"cols\": 120,\n  \"rows\": 40,\n  \"cwd\": \"/path/to/dir\",\n  \"createdAt\": \"2024-01-15T10:30:00.000Z\"\n}"
+    }
+  ]
+}
+```
+
+### Example
+
+**Request:**
+```json
+{
+  "name": "createSession",
+  "arguments": {}
+}
+```
+
+---
+
+## listSessions
+
+List all active terminal sessions.
+
+### Parameters
+
+None.
+
+### Returns
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\n  \"sessions\": [...],\n  \"maxSessions\": 5,\n  \"idleTimeout\": 600\n}"
+    }
+  ]
+}
+```
+
+---
+
+## destroySession
+
+Destroy a terminal session by ID.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `sessionId` | string | Yes | Session ID to destroy |
+
+### Returns
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\n  \"success\": true,\n  \"message\": \"Session 'a7k2x' destroyed\"\n}"
+    }
+  ]
+}
+```
+
+---
+
 ## Error Handling
 
 All tools return errors in a consistent format:
@@ -586,4 +678,26 @@ All tools return errors in a consistent format:
    → Recording saved to ~/.local/state/terminal-mcp/recordings/
 
 6. Play with: asciinema play <path-to-recording.cast>
+```
+
+### Running Parallel Commands in Multiple Sessions
+
+```
+1. createSession: {}
+   → Returns sessionId: "a7k2x"
+
+2. createSession: {}
+   → Returns sessionId: "b3m9p"
+
+3. type: {"sessionId": "a7k2x", "text": "npm install"}
+4. sendKey: {"sessionId": "a7k2x", "key": "Enter"}
+
+5. type: {"sessionId": "b3m9p", "text": "npm test"}
+6. sendKey: {"sessionId": "b3m9p", "key": "Enter"}
+
+7. getContent: {"sessionId": "a7k2x"}  // Check install output
+8. getContent: {"sessionId": "b3m9p"}  // Check test output
+
+9. destroySession: {"sessionId": "a7k2x"}
+10. destroySession: {"sessionId": "b3m9p"}
 ```

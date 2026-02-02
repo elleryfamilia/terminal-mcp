@@ -2,3 +2,9 @@ export { TerminalSession } from "./session.js";
 export type { TerminalSessionOptions, ScreenshotResult } from "./session.js";
 export { TerminalManager } from "./manager.js";
 export type { TerminalManagerOptions } from "./manager.js";
+export { SessionManager } from "./sessionManager.js";
+export type {
+  SessionManagerOptions,
+  SessionMetadata,
+  CreateSessionOptions,
+} from "./sessionManager.js";

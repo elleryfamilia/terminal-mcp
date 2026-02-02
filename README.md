@@ -28,7 +28,8 @@ curl -fsSL https://raw.githubusercontent.com/elleryfamilia/terminal-mcp/main/ins
 - **Cross-Platform PTY**: Native pseudo-terminal support via node-pty (macOS, Linux, Windows)
 - **MCP Protocol**: Implements Model Context Protocol for AI assistant integration
 - **Session Recording**: Record terminal sessions to asciicast format for playback with asciinema
-- **Simple API**: Six intuitive tools for complete terminal control
+- **Multi-Session Support**: Run multiple independent terminal sessions in parallel
+- **Simple API**: Intuitive tools for complete terminal control
 - **Sandbox Mode**: Optional security restrictions for filesystem and network access
 
 ## Building from Source
@@ -89,6 +90,10 @@ Recording Options:
   --idle-time-limit <sec>   Max idle time between events (default: 2s)
   --max-duration <sec>      Max recording duration (default: 3600s)
   --inactivity-timeout <sec>  Stop after no output (default: 600s)
+
+Multi-Session Options:
+  --max-sessions <num>           Max concurrent sessions (default: 5)
+  --session-idle-timeout <sec>   Auto-destroy idle sessions (default: 600s)
 ```
 
 ## MCP Tools
@@ -178,6 +183,64 @@ Stop a recording and finalize the asciicast file.
   }
 }
 ```
+
+## Multi-Session Support
+
+Run multiple independent terminal sessions in parallel. Useful for AI agents that need to execute concurrent operations without command interference.
+
+### Session Management Tools
+
+#### `createSession`
+Create a new terminal session.
+
+```json
+{
+  "name": "createSession",
+  "arguments": {
+    "shell": "/bin/zsh",
+    "cols": 120,
+    "rows": 40
+  }
+}
+```
+
+#### `listSessions`
+List all active sessions with metadata.
+
+```json
+{
+  "name": "listSessions",
+  "arguments": {}
+}
+```
+
+#### `destroySession`
+Destroy a session by ID.
+
+```json
+{
+  "name": "destroySession",
+  "arguments": {
+    "sessionId": "a7k2x"
+  }
+}
+```
+
+### Using Sessions
+
+All terminal tools accept an optional `sessionId` parameter:
+
+```json
+{
+  "name": "type",
+  "arguments": {
+    "sessionId": "a7k2x",
+    "text": "echo hello"
+  }
+}
+```
+
+When `sessionId` is omitted, a default session is automatically created and used.
 
 ## Sandbox Mode
 

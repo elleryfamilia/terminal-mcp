@@ -29,6 +29,13 @@ See [Sandbox Mode](./sandbox.md) for detailed sandbox configuration.
 
 See [Recording Documentation](recording.md) for full details on recording features.
 
+### Multi-Session Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--max-sessions` | number | 5 | Maximum concurrent terminal sessions |
+| `--session-idle-timeout` | number | 600 | Auto-destroy idle sessions after N seconds |
+
 ## Usage
 
 ### Basic Usage
@@ -279,6 +286,12 @@ The terminal session lives for the duration of the MCP connection. When the AI a
 
 ### Concurrent Sessions
 
-Currently, Terminal MCP supports a single terminal session. The session is created on first tool use and persists until shutdown.
+Terminal MCP supports multiple concurrent sessions (default: 5 max). Use `createSession` to create new sessions and `destroySession` to clean them up. Sessions are automatically destroyed after idle timeout (default: 10 minutes).
 
-Future versions may support multiple named sessions.
+```bash
+# Allow up to 10 concurrent sessions
+terminal-mcp --max-sessions 10
+
+# Set idle timeout to 30 minutes
+terminal-mcp --session-idle-timeout 1800
+```

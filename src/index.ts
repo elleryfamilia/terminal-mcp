@@ -2,7 +2,7 @@
 
 import * as fs from "fs";
 import { createRequire } from "module";
-import { startServer } from "./server.js";
+import { startServer, startSessionServer } from "./server.js";
 import { startMcpClientMode } from "./client.js";
 import { TerminalManager } from "./terminal/index.js";
 import { createToolProxyServer } from "./transport/index.js";
@@ -40,6 +40,9 @@ const options: {
   idleTimeLimit?: number;
   maxDuration?: number;
   inactivityTimeout?: number;
+  headless?: boolean;
+  maxSessions?: number;
+  sessionIdleTimeout?: number;
 } = {};
 
 for (let i = 0; i < args.length; i++) {
@@ -123,6 +126,21 @@ for (let i = 0; i < args.length; i++) {
         i++;
       }
       break;
+    case "--headless":
+      options.headless = true;
+      break;
+    case "--max-sessions":
+      if (next) {
+        options.maxSessions = parseInt(next, 10);
+        i++;
+      }
+      break;
+    case "--session-idle-timeout":
+      if (next) {
+        options.sessionIdleTimeout = parseInt(next, 10);
+        i++;
+      }
+      break;
     case "--version":
     case "-v":
       console.log(`terminal-mcp v${version}`);
@@ -141,6 +159,9 @@ Options:
   --socket <path>        Unix socket path for MCP (default: ${DEFAULT_SOCKET_PATH})
   --sandbox              Enable sandbox mode (restricts filesystem/network access)
   --sandbox-config <path> Load sandbox config from JSON file
+  --headless             Run as headless MCP server (no interactive session needed)
+  --max-sessions <num>   Maximum concurrent sessions in headless mode (default: 5)
+  --session-idle-timeout <sec>  Auto-destroy idle sessions (default: 600 = 10 min)
   --version, -v          Show version number
   --help, -h             Show this help message
 
@@ -206,6 +227,27 @@ MCP Client Mode (add to your MCP client config):
       }
     }
   }
+
+Headless Mode (recommended for AI agents):
+  {
+    "mcpServers": {
+      "terminal": {
+        "command": "terminal-mcp",
+        "args": ["--headless"]
+      }
+    }
+  }
+
+  Headless mode runs a self-contained MCP server with multi-session support.
+  No separate interactive session is required.
+
+  Session tools available in headless mode:
+    - createSession: Create a new terminal session
+    - destroySession: Destroy a session by ID
+    - listSessions: List all active sessions
+
+  All other tools (type, sendKey, getContent, takeScreenshot) accept an
+  optional sessionId parameter. If not provided, a default session is used.
 `);
       process.exit(0);
   }
@@ -225,7 +267,16 @@ async function main() {
     process.exit(1);
   }
 
-  if (isInteractive) {
+  if (options.headless) {
+    // Headless mode: Self-contained MCP server with multi-session support
+    await startSessionServer({
+      cols: options.cols,
+      rows: options.rows,
+      shell: options.shell,
+      maxSessions: options.maxSessions,
+      sessionIdleTimeout: options.sessionIdleTimeout,
+    });
+  } else if (isInteractive) {
     // Interactive mode: Shell on stdin/stdout, tool proxy on Unix socket
     await startInteractiveMode(socketPath);
   } else {
