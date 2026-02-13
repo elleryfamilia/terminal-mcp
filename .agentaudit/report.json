@@ -1,0 +1,11 @@
+{
+  "skill_slug": "bouvet",
+  "source_url": "https://github.com/vrn21/bouvet",
+  "commit_sha": "9c889c546331ee6b1b589e054299ac397a9112e6",
+  "content_hash": "c45a4f1605ee533add3527baa2f1174e022b796e1c83bce5628d551a9d8a4b30",
+  "package_type": "mcp-server",
+  "risk_score": 0,
+  "result": "safe",
+  "findings_count": 0,
+  "findings": []
+}
