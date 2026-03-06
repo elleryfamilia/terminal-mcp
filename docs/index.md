@@ -19,6 +19,7 @@ Terminal MCP bridges the gap between AI assistants and interactive terminal appl
 - **Simple API**: Seven intuitive tools for complete terminal control
 - **Session Recording**: Record terminal sessions to asciicast v2 format for playback with asciinema
 - **Configurable**: Customizable terminal dimensions, shell selection, and recording options
+- **Headless Mode**: Run as a standalone MCP server without a TTY — ideal for CI, containers, and non-interactive environments
 - **Sandbox Mode**: Optional security restrictions for filesystem and network access
 
 ## Quick Start
