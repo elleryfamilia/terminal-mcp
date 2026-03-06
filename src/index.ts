@@ -32,6 +32,7 @@ const options: {
   rows?: number;
   shell?: string;
   socket?: string;
+  headless?: boolean;
   sandbox?: boolean;
   sandboxConfig?: string;
   record?: RecordingMode;
@@ -70,6 +71,9 @@ for (let i = 0; i < args.length; i++) {
         options.socket = next;
         i++;
       }
+      break;
+    case "--headless":
+      options.headless = true;
       break;
     case "--sandbox":
       options.sandbox = true;
@@ -139,6 +143,7 @@ Options:
   --rows <number>        Terminal height in rows (default: auto or 40)
   --shell <path>         Shell to use (default: $SHELL or bash)
   --socket <path>        Unix socket path for MCP (default: ${DEFAULT_SOCKET_PATH})
+  --headless             Run in headless mode (MCP server with embedded terminal, no TTY needed)
   --sandbox              Enable sandbox mode (restricts filesystem/network access)
   --sandbox-config <path> Load sandbox config from JSON file
   --version, -v          Show version number
@@ -165,6 +170,7 @@ Environment Variables:
   TERMINAL_MCP_RECORD_DIR  Default recording output directory
 
 Mode Detection:
+  - If --headless: Headless mode (embedded PTY + MCP server over stdio)
   - If stdin is a TTY: Interactive mode (gives you a shell, exposes socket)
   - If stdin is not a TTY: MCP client mode (connects to socket, serves MCP)
 
@@ -198,6 +204,23 @@ Sandbox Mode:
     }
   }
 
+Headless Mode (no TTY required, for CI/containers/MCP servers):
+  terminal-mcp --headless
+  terminal-mcp --headless --cols 120 --rows 40
+
+  Spawns a PTY shell internally and serves MCP directly over stdio.
+  No separate interactive session or socket needed.
+
+  MCP client config for headless:
+  {
+    "mcpServers": {
+      "terminal": {
+        "command": "terminal-mcp",
+        "args": ["--headless", "--cols", "120", "--rows", "40"]
+      }
+    }
+  }
+
 MCP Client Mode (add to your MCP client config):
   {
     "mcpServers": {
@@ -225,7 +248,15 @@ async function main() {
     process.exit(1);
   }
 
-  if (isInteractive) {
+  if (options.headless) {
+    // Headless mode: Spawn PTY internally, serve MCP directly over stdio
+    // No TTY or socket needed
+    await startServer({
+      cols: options.cols,
+      rows: options.rows,
+      shell: options.shell,
+    });
+  } else if (isInteractive) {
     // Interactive mode: Shell on stdin/stdout, tool proxy on Unix socket
     await startInteractiveMode(socketPath);
   } else {

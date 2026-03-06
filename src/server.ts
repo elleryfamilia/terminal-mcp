@@ -65,6 +65,10 @@ export async function connectServer(server: Server, transport: Transport): Promi
  */
 export async function startServer(options: ServerOptions = {}): Promise<void> {
   const { server, manager } = createServer(options);
+
+  // Eagerly initialize the terminal session so tools can use it immediately
+  await manager.initSession();
+
   const transport = new StdioServerTransport();
 
   // Handle graceful shutdown
