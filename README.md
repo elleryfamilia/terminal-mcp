@@ -29,6 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/elleryfamilia/terminal-mcp/main/ins
 - **MCP Protocol**: Implements Model Context Protocol for AI assistant integration
 - **Session Recording**: Record terminal sessions to asciicast format for playback with asciinema
 - **Simple API**: Six intuitive tools for complete terminal control
+- **Headless Mode**: Run as a standalone MCP server without a TTY — ideal for CI, containers, and non-interactive environments
 - **Sandbox Mode**: Optional security restrictions for filesystem and network access
 
 ## Building from Source
@@ -76,6 +77,7 @@ Options:
   --cols <number>        Terminal width in columns (default: 120)
   --rows <number>        Terminal height in rows (default: 40)
   --shell <path>         Shell to use (default: $SHELL or bash)
+  --headless             Run in headless mode (embedded PTY + MCP over stdio, no TTY needed)
   --sandbox              Enable sandbox mode (restricts filesystem/network)
   --sandbox-config <path> Load sandbox config from JSON file
   --version, -v          Show version number
@@ -90,6 +92,49 @@ Recording Options:
   --max-duration <sec>      Max recording duration (default: 3600s)
   --inactivity-timeout <sec>  Stop after no output (default: 600s)
 ```
+
+## Headless Mode
+
+By default, Terminal MCP uses a **dual-process architecture**: you run `terminal-mcp` in an interactive terminal (which creates a Unix socket), then your MCP client spawns a second instance that connects to that socket. This requires a TTY.
+
+**Headless mode** (`--headless`) eliminates this requirement by spawning an embedded PTY internally and serving MCP directly over stdio in a single process. No interactive terminal session, no socket — just a self-contained MCP server with a built-in terminal.
+
+### When to use headless mode
+
+- **CI/CD pipelines** — no TTY available
+- **Docker containers** — no interactive shell to run alongside
+- **Remote/cloud environments** — MCP servers spawned by automation
+- **Simplified setup** — single process, no socket coordination needed
+
+### Configuration
+
+```json
+{
+  "mcpServers": {
+    "terminal": {
+      "command": "terminal-mcp",
+      "args": ["--headless", "--cols", "120", "--rows", "40"]
+    }
+  }
+}
+```
+
+### How it works
+
+```
+MCP Client (Claude Code, etc.)
+    │ STDIO (JSON-RPC)
+    ▼
+terminal-mcp --headless
+    ├── MCP Server (stdio transport)
+    ├── Terminal Emulator (@xterm/headless)
+    └── Embedded PTY (node-pty)
+            │
+            ▼
+        Shell Process (bash, zsh, etc.)
+```
+
+In headless mode, the terminal session is initialized eagerly at startup, so all tools (`type`, `sendKey`, `getContent`, `takeScreenshot`, `startRecording`, `stopRecording`) are available immediately.
 
 ## MCP Tools
 
@@ -292,17 +337,40 @@ This enables AI-driven workflows like "record this debugging session" or "captur
 
 ## Architecture
 
+Terminal MCP has three operating modes:
+
+| Mode | Flag | Stdin | Description |
+|------|------|-------|-------------|
+| **Interactive** | *(default)* | TTY | User gets a shell; AI connects via Unix socket |
+| **Client** | *(default)* | non-TTY | Connects to an interactive session's socket, serves MCP over stdio |
+| **Headless** | `--headless` | any | Self-contained: embedded PTY + MCP server over stdio |
+
+### Headless mode (recommended for MCP configs)
+
 ```
 MCP Client (Claude Code, etc.)
     │ STDIO (JSON-RPC)
     ▼
-Terminal MCP Server (Node.js)
+terminal-mcp --headless
     ├── MCP SDK (@modelcontextprotocol/sdk)
     ├── Terminal Emulator (@xterm/headless)
-    └── PTY Manager (node-pty)
+    └── Embedded PTY (node-pty)
             │
             ▼
         Shell Process (bash, zsh, etc.)
+```
+
+### Interactive + Client mode (two-process)
+
+```
+terminal-mcp (interactive, in your terminal)
+    ├── User shell (stdin/stdout)
+    └── Unix socket server (/tmp/terminal-mcp.sock)
+            ▲
+            │ JSON-RPC over socket
+            ▼
+terminal-mcp (client, spawned by MCP client)
+    └── MCP server (stdio transport)
 ```
 
 ## Example Session
