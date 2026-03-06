@@ -38,8 +38,14 @@ See [Recording Documentation](recording.md) for full details on recording featur
 # Use defaults (120x40, system shell)
 terminal-mcp
 
+# Headless mode (no TTY required — recommended for MCP configs)
+terminal-mcp --headless
+
 # Custom dimensions
 terminal-mcp --cols 80 --rows 24
+
+# Headless with custom dimensions
+terminal-mcp --headless --cols 100 --rows 30
 
 # Specific shell
 terminal-mcp --shell /bin/zsh
@@ -90,6 +96,21 @@ Example:
 ```
 
 ## Claude Code Configuration
+
+### Headless Mode (Recommended)
+
+The simplest setup — no separate interactive session needed:
+
+```json
+{
+  "mcpServers": {
+    "terminal": {
+      "command": "terminal-mcp",
+      "args": ["--headless", "--cols", "120", "--rows", "40"]
+    }
+  }
+}
+```
 
 ### Basic Configuration
 

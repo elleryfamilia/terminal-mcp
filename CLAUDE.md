@@ -12,16 +12,22 @@ npm run dev        # Run directly with tsx (no build needed)
 
 ## Architecture Overview
 
-Terminal MCP is a headless terminal emulator exposed via Model Context Protocol (MCP). It has two operating modes:
+Terminal MCP is a headless terminal emulator exposed via Model Context Protocol (MCP). It has three operating modes:
 
-### Dual-Mode Architecture
+### Tri-Mode Architecture
 
-1. **Interactive Mode** (stdin is TTY): User runs `terminal-mcp` in their terminal
+1. **Headless Mode** (`--headless` flag): Self-contained MCP server with embedded PTY
+   - Spawns PTY internally, serves MCP directly over stdio
+   - No TTY, socket, or separate interactive session needed
+   - `src/index.ts` → `startServer()` from `src/server.ts` (eagerly inits session)
+   - **Recommended for MCP client configs** (CI, containers, non-interactive environments)
+
+2. **Interactive Mode** (stdin is TTY, no `--headless`): User runs `terminal-mcp` in their terminal
    - Spawns a PTY shell process, pipes I/O to user's terminal
    - Exposes a Unix socket at `/tmp/terminal-mcp.sock` for AI tool access
    - `src/index.ts` → `startInteractiveMode()` → creates `TerminalManager` + `createToolProxyServer()`
 
-2. **MCP Client Mode** (stdin is not TTY): Claude Code spawns `terminal-mcp` as MCP server
+3. **MCP Client Mode** (stdin is not TTY, no `--headless`): Claude Code spawns `terminal-mcp` as MCP server
    - Connects to the Unix socket from interactive mode
    - Serves MCP protocol over stdio to Claude Code
    - `src/client.ts` → `startMcpClientMode()` → proxies tool calls to socket
@@ -43,7 +49,14 @@ Terminal MCP is a headless terminal emulator exposed via Model Context Protocol 
 ### Data Flow
 
 ```
-Interactive Mode:                    MCP Client Mode:
+Headless Mode:
+Claude Code
+    ↕ (MCP JSON-RPC over stdio)
+MCP Server (server.ts) + TerminalManager + PTY
+    ↕
+Shell Process
+
+Interactive + Client Mode:
 User Terminal                        Claude Code
     ↕ (raw PTY I/O)                     ↕ (MCP JSON-RPC over stdio)
 TerminalSession                      MCP Server (client.ts)
