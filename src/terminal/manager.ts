@@ -182,6 +182,13 @@ export class TerminalManager {
   }
 
   /**
+   * Get terminal content with ANSI color codes
+   */
+  getAnsiContent(visibleOnly = false): string {
+    return this.getSession().getAnsiContent(visibleOnly);
+  }
+
+  /**
    * Take a screenshot
    */
   takeScreenshot(): ScreenshotResult {

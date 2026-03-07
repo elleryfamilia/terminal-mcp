@@ -3,8 +3,8 @@ import { TerminalManager } from "../terminal/index.js";
 import { renderTerminalToPng } from "../utils/render.js";
 
 export const screenshotSchema = z.object({
-  format: z.enum(["text", "png"]).optional().describe(
-    "Output format: 'text' (default) returns JSON with content/cursor/dimensions, 'png' returns a color screenshot image"
+  format: z.enum(["text", "ansi", "png"]).optional().describe(
+    "Output format: 'text' (default) returns plain JSON, 'ansi' returns text with ANSI color codes, 'png' returns a color screenshot image"
   ),
 });
 
@@ -13,15 +13,15 @@ export type ScreenshotArgs = z.infer<typeof screenshotSchema>;
 export const screenshotTool = {
   name: "takeScreenshot",
   description:
-    "Capture terminal state. Default format 'text' returns structured JSON with content, cursor {x, y}, and dimensions {cols, rows}. Format 'png' returns a color screenshot as an image with full ANSI color rendering. Use 'png' when you need a visual representation or want to share/save the terminal state.",
+    "Capture terminal state. Format 'text' (default) returns plain JSON with content, cursor, dimensions. Format 'ansi' returns JSON with ANSI color escape codes preserved in the content field. Format 'png' returns a color screenshot image.",
   inputSchema: {
     type: "object" as const,
     properties: {
       format: {
         type: "string",
-        enum: ["text", "png"],
+        enum: ["text", "ansi", "png"],
         description:
-          "Output format: 'text' (default) for JSON, 'png' for color screenshot image",
+          "Output format: 'text' (default) plain JSON, 'ansi' for colored text with ANSI codes, 'png' for color screenshot image",
       },
     },
     required: [],
@@ -34,6 +34,27 @@ export function handleScreenshot(
 ): { content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> } {
   const parsed = screenshotSchema.parse(args);
   const format = parsed.format || "text";
+
+  if (format === "ansi") {
+    const content = manager.getAnsiContent(true);
+    const buffer = manager.getTerminal().buffer.active;
+    const result = {
+      content,
+      cursor: { x: buffer.cursorX, y: buffer.cursorY },
+      dimensions: {
+        cols: manager.getDimensions().cols,
+        rows: manager.getDimensions().rows,
+      },
+    };
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  }
 
   if (format === "png") {
     const terminal = manager.getTerminal();
