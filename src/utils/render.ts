@@ -4,7 +4,35 @@
  * and @resvg/resvg-js for SVG-to-PNG conversion.
  */
 
+import { createRequire } from "module";
+import * as os from "os";
+import * as path from "path";
+import * as fs from "fs";
 import type { Terminal } from "@xterm/headless";
+
+const require = createRequire(import.meta.url);
+
+function defaultFontDirs(): string[] {
+  const dirs: string[] = [];
+  const home = os.homedir();
+
+  // Common font directories
+  const candidates = [
+    path.join(home, '.local/share/fonts'),
+    '/usr/share/fonts',
+    '/usr/local/share/fonts',
+    '/System/Library/Fonts',
+    path.join(home, 'Library/Fonts'),
+  ];
+
+  for (const d of candidates) {
+    try {
+      if (fs.statSync(d).isDirectory()) dirs.push(d);
+    } catch { /* skip */ }
+  }
+
+  return dirs;
+}
 
 // xterm.js CellColorMode bitmask values from IBufferCell.getFgColorMode():
 const CM_DEFAULT = 0;
@@ -75,10 +103,15 @@ export interface RenderOptions {
 export function renderTerminalToPng(terminal: Terminal, options: RenderOptions = {}): Buffer {
   const {
     fontFamily = 'JetBrains Mono',
-    fontDirs = [],
+    fontDirs: userFontDirs = [],
     windowChrome = true,
     scale = 2,
   } = options;
+
+  // Default font search paths if none provided
+  const fontDirs = userFontDirs.length > 0
+    ? userFontDirs
+    : defaultFontDirs();
 
   const cols = terminal.cols;
   const rows = terminal.rows;
