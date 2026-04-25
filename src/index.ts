@@ -27,6 +27,45 @@ const DEFAULT_SOCKET_PATH = getDefaultSocketPath();
 // Recording mode type
 type RecordingMode = 'always' | 'on-failure' | 'off';
 
+// Subcommand dispatch — handle these BEFORE the main flag parser so they
+// can have their own argument shape and don't accidentally fall through
+// into the interactive/headless/client mode-detection logic below.
+const subcommandArgs = process.argv.slice(2);
+const subcommand = subcommandArgs[0];
+if (subcommand === "setup") {
+  const { runSetup } = await import("./setup/index.js");
+  const setupOpts = { dryRun: false, uninstall: false, clients: undefined as string[] | undefined };
+  for (let i = 1; i < subcommandArgs.length; i++) {
+    const a = subcommandArgs[i];
+    const n = subcommandArgs[i + 1];
+    if (a === "--dry-run") setupOpts.dryRun = true;
+    else if (a === "--uninstall") setupOpts.uninstall = true;
+    else if (a === "--client" && n) { setupOpts.clients = n.split(",").map((s) => s.trim()).filter(Boolean); i++; }
+    else if (a === "--help" || a === "-h") {
+      console.log(`
+terminal-mcp setup — install the terminal-mcp MCP server entry into AI tool configs
+
+Usage: terminal-mcp setup [options]
+
+Options:
+  --client <names>   Comma-separated client names, or 'all'. Default: every detected client.
+                     Known: codex, copilot, gemini, opencode, claude-code, claude-desktop
+  --dry-run          Print what would change without writing.
+  --uninstall        Remove the terminal-mcp entry instead of adding it.
+  --help, -h         Show this help.
+
+Examples:
+  terminal-mcp setup
+  terminal-mcp setup --dry-run
+  terminal-mcp setup --client claude-code,gemini
+  terminal-mcp setup --uninstall --client all
+`);
+      process.exit(0);
+    }
+  }
+  process.exit(await runSetup(setupOpts));
+}
+
 // Parse command line arguments
 const args = process.argv.slice(2);
 const options: {
@@ -153,6 +192,7 @@ for (let i = 0; i < args.length; i++) {
 terminal-mcp v${version} - A headless terminal emulator exposed via MCP
 
 Usage: terminal-mcp [options]
+       terminal-mcp setup [options]   Install MCP entry into AI tool configs (run 'terminal-mcp setup --help')
 
 Options:
   --cols <number>        Terminal width in columns (default: auto or 120)

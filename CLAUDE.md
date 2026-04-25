@@ -45,6 +45,10 @@ Terminal MCP is a headless terminal emulator exposed via Model Context Protocol 
 - Recording tools: `startRecording`, `stopRecording`. Recording is process-wide — when active, it captures output from all sessions in the manager.
 - Multi-session tools: `createSession`, `listSessions`, `destroySession`. The default session cannot be destroyed.
 
+**Setup Layer** (`src/setup/`):
+- `clients.ts`: One adapter per supported AI tool (codex, copilot, gemini, opencode, claude-code, claude-desktop). Each adapter knows the client's config path, format (JSON or TOML), and the exact MCP server schema that client expects. Most use the standard `mcpServers` JSON shape via `makeMcpServersJsonAdapter`; codex (TOML) and opencode (different schema entirely — top-level `mcp`, command as array) have their own adapters.
+- `index.ts`: Orchestrates the `terminal-mcp setup` subcommand — flag parsing happens in `src/index.ts`, this module handles client selection (auto-detect or explicit `--client`), per-client install/uninstall, and result printing. Writes are atomic (write-to-temp + rename) and always create a `.bak` of the original.
+
 **Transport Layer** (`src/transport/`):
 - `socket.ts`: Unix socket server for tool proxying between modes. Also has `SocketTransport` class implementing MCP's Transport interface.
 
