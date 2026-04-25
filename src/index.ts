@@ -2,6 +2,7 @@
 
 import * as fs from "fs";
 import { createRequire } from "module";
+import updateNotifier from "update-notifier";
 import { startServer } from "./server.js";
 import { startMcpClientMode } from "./client.js";
 import { TerminalManager } from "./terminal/index.js";
@@ -17,7 +18,8 @@ import {
 } from "./sandbox/index.js";
 
 const require = createRequire(import.meta.url);
-const { version } = require("../package.json");
+const pkg = require("../package.json");
+const { version } = pkg;
 
 // Default socket path
 const DEFAULT_SOCKET_PATH = getDefaultSocketPath();
@@ -284,6 +286,15 @@ async function main() {
 }
 
 async function startInteractiveMode(socketPath: string): Promise<void> {
+  // Throttled update check (once per day). Prints to stderr in the user's
+  // terminal, never in headless / MCP-client mode where it would corrupt
+  // JSON-RPC over stdio.
+  try {
+    updateNotifier({ pkg }).notify({ defer: false });
+  } catch {
+    // Never let an update check break startup.
+  }
+
   // Get terminal size from environment or use defaults
   const cols = options.cols ?? (process.stdout.columns || 120);
   const rows = options.rows ?? (process.stdout.rows || 40);
