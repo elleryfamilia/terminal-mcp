@@ -208,10 +208,11 @@ const gemini = makeMcpServersJsonAdapter({
 const claudeCode = makeMcpServersJsonAdapter({
   name: "claude-code",
   label: "Claude Code",
-  // Use ~/.claude/settings.json (stable user file) rather than ~/.claude.json
-  // (runtime-state file with OAuth tokens and session caches we shouldn't munge).
-  configPath: () => path.join(os.homedir(), ".claude", "settings.json"),
-  detect: () => dirExists(path.join(os.homedir(), ".claude")) || existsOnPath("claude"),
+  // Claude Code reads user-scope MCP servers from ~/.claude.json (top-level
+  // mcpServers key) — same file `claude mcp add --scope user` writes to.
+  // ~/.claude/settings.json is for theme/hooks/permissions, not MCP servers.
+  configPath: () => path.join(os.homedir(), ".claude.json"),
+  detect: () => fileExists(path.join(os.homedir(), ".claude.json")) || dirExists(path.join(os.homedir(), ".claude")) || existsOnPath("claude"),
   restartHint: "starts on next claude session",
 });
 
