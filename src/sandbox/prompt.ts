@@ -15,9 +15,9 @@ const RESET = `${ESC}[0m`;
 const CYAN = `${ESC}[36m`;
 const GREEN = `${ESC}[32m`;
 const RED = `${ESC}[31m`;
-const YELLOW = `${ESC}[38;2;255;255;0m`;
+const YELLOW = `${ESC}[33m`;
 const BG_BLUE = `${ESC}[44m`;
-const WHITE = `${ESC}[97m`;
+const WHITE = `${ESC}[39m`;  // default foreground — theme-appropriate, readable on light terminals
 const MAGENTA = `${ESC}[35m`;
 
 // Box drawing characters

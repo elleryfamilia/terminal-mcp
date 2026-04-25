@@ -1,16 +1,15 @@
 import { VERSION } from "../utils/version.js";
 import { getToolNames } from "../tools/definitions.js";
 
-// Custom color #31cae1 as 24-bit ANSI escape (RGB: 49, 202, 225)
-const BRAND_COLOR = "\x1b[38;2;49;202;225m";
-// Pink accent color for MCP (RGB: 255, 105, 180 - hot pink)
-const PINK_COLOR = "\x1b[38;2;255;105;180m";
-// Bright yellow for borders (RGB: 255, 255, 0)
-const YELLOW_COLOR = "\x1b[38;2;255;255;0m";
-// White for text content
-const WHITE_COLOR = "\x1b[38;2;255;255;255m";
-// Green for sandbox indicator (RGB: 50, 205, 50 - lime green)
-const GREEN_COLOR = "\x1b[38;2;50;205;50m";
+// Use named ANSI palette codes rather than 24-bit RGB so the terminal's
+// own theme adjusts each color for the user's background. Pure RGB colors
+// like #ffffff (white) are invisible on light terminals; named ANSI white
+// is rendered as black-or-similar by light themes.
+const BRAND_COLOR = "\x1b[36m";   // cyan
+const PINK_COLOR = "\x1b[35m";    // magenta
+const YELLOW_COLOR = "\x1b[33m";  // yellow (rendered as orange-ish on light themes)
+const WHITE_COLOR = "\x1b[39m";   // default foreground (theme-appropriate)
+const GREEN_COLOR = "\x1b[32m";   // green
 const RESET = "\x1b[0m";
 
 // ANSI Shadow style figlet logo for "TERMINAL" + "MCP" stacked
