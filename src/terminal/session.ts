@@ -7,8 +7,12 @@ const { Terminal } = xtermHeadless;
 import { getDefaultShell } from "../utils/platform.js";
 import type { SandboxController } from "../sandbox/index.js";
 
-// Custom prompt indicator for terminal-mcp
-const PROMPT_INDICATOR = "⚡";
+// Custom prompt indicator for terminal-mcp.
+// Includes "mcp" so it's unmistakable — many shell themes (oh-my-zsh,
+// starship, etc.) already use ⚡ on its own and a bare lightning bolt
+// would blend in. Used both as the rendered text and as the idempotency
+// sentinel by the precmd hook.
+const PROMPT_INDICATOR = "⚡ mcp";
 
 export interface TerminalSessionOptions {
   cols?: number;
@@ -83,14 +87,29 @@ export class TerminalSession {
     };
 
     if (shellName === "bash" || shellName === "sh") {
-      // Create temp rcfile that sources user's .bashrc then sets our prompt
+      // Create temp rcfile that sources user's .bashrc then prepends our marker
+      // to PS1 every prompt (so themes that rebuild PS1 in PROMPT_COMMAND can't
+      // clobber it) and sets the terminal title.
       const homeDir = os.homedir();
       const bannerCmd = startupBanner ? `printf '%s\\n' '${escapeBannerForShell(startupBanner)}'` : "";
       const bashrcContent = `
 # Source user's bashrc if it exists
 [ -f "${homeDir}/.bashrc" ] && source "${homeDir}/.bashrc"
-# Set terminal-mcp prompt
-PS1="${PROMPT_INDICATOR} \\$ "
+# Set initial terminal title
+printf '\\033]0;[terminal-mcp]\\a'
+# Prepend a marker to PS1 every prompt and refresh the title.
+# Re-runs each PROMPT_COMMAND so themes that rebuild PS1 keep the marker.
+_terminal_mcp_prompt_marker() {
+  printf '\\033]0;[terminal-mcp] %s\\a' "\${PWD/#$HOME/~}"
+  case "$PS1" in
+    *"${PROMPT_INDICATOR}"*) ;;
+    *) PS1="\\[\\033[30;43m\\] ${PROMPT_INDICATOR} \\[\\033[0m\\] $PS1" ;;
+  esac
+}
+case "\${PROMPT_COMMAND:-}" in
+  *_terminal_mcp_prompt_marker*) ;;
+  *) PROMPT_COMMAND="_terminal_mcp_prompt_marker\${PROMPT_COMMAND:+; $PROMPT_COMMAND}" ;;
+esac
 # Print startup banner
 ${bannerCmd}
 `;
@@ -100,7 +119,10 @@ ${bannerCmd}
     }
 
     if (shellName === "zsh") {
-      // Create temp ZDOTDIR with .zshrc that sources user's config then sets prompt
+      // Create temp ZDOTDIR with .zshrc that sources user's config then registers
+      // a precmd hook (running LAST) that prepends our marker. This survives
+      // theme regenerators like powerlevel10k / starship that rebuild PROMPT
+      // every precmd.
       const homeDir = os.homedir();
       this.zdotdir = path.join(os.tmpdir(), `terminal-mcp-zsh-${process.pid}`);
       fs.mkdirSync(this.zdotdir, { recursive: true });
@@ -111,8 +133,19 @@ ${bannerCmd}
 export ZDOTDIR="${homeDir}"
 # Source user's zshrc if it exists
 [ -f "${homeDir}/.zshrc" ] && source "${homeDir}/.zshrc"
-# Set terminal-mcp prompt
-PROMPT="${PROMPT_INDICATOR} %# "
+# Set initial terminal title
+print -Pn '\\e]0;[terminal-mcp]\\a'
+# Prepend a marker to PROMPT every precmd and refresh the title.
+# Registers AFTER user's zshrc so this hook fires after p10k/starship
+# regenerate PROMPT.
+autoload -Uz add-zsh-hook
+_terminal_mcp_prompt_marker() {
+  print -Pn '\\e]0;[terminal-mcp] %~\\a'
+  if [[ "$PROMPT" != *"${PROMPT_INDICATOR}"* ]]; then
+    PROMPT="%K{yellow}%F{black} ${PROMPT_INDICATOR} %f%k $PROMPT"
+  fi
+}
+add-zsh-hook precmd _terminal_mcp_prompt_marker
 # Print startup banner
 ${bannerCmd}
 `;
