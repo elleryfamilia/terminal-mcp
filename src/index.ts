@@ -41,6 +41,8 @@ const options: {
   idleTimeLimit?: number;
   maxDuration?: number;
   inactivityTimeout?: number;
+  maxSessions?: number;
+  sessionIdleTimeout?: number;
 } = {};
 
 for (let i = 0; i < args.length; i++) {
@@ -127,6 +129,18 @@ for (let i = 0; i < args.length; i++) {
         i++;
       }
       break;
+    case "--max-sessions":
+      if (next) {
+        options.maxSessions = parseInt(next, 10);
+        i++;
+      }
+      break;
+    case "--session-idle-timeout":
+      if (next) {
+        options.sessionIdleTimeout = parseFloat(next);
+        i++;
+      }
+      break;
     case "--version":
     case "-v":
       console.log(`terminal-mcp v${version}`);
@@ -146,6 +160,8 @@ Options:
   --headless             Run in headless mode (MCP server with embedded terminal, no TTY needed)
   --sandbox              Enable sandbox mode (restricts filesystem/network access)
   --sandbox-config <path> Load sandbox config from JSON file
+  --max-sessions <n>     Max concurrent terminal sessions (default: 5)
+  --session-idle-timeout <sec> Idle non-default sessions auto-destroy after this (default: 600)
   --version, -v          Show version number
   --help, -h             Show this help message
 
@@ -255,6 +271,8 @@ async function main() {
       cols: options.cols,
       rows: options.rows,
       shell: options.shell,
+      maxSessions: options.maxSessions,
+      sessionIdleTimeout: options.sessionIdleTimeout,
     });
   } else if (isInteractive) {
     // Interactive mode: Shell on stdin/stdout, tool proxy on Unix socket
@@ -365,6 +383,8 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
     idleTimeLimit: options.idleTimeLimit,
     maxDuration: options.maxDuration,
     inactivityTimeout: options.inactivityTimeout,
+    maxSessions: options.maxSessions,
+    sessionIdleTimeout: options.sessionIdleTimeout,
   });
 
   // Get the session and set up interactive I/O

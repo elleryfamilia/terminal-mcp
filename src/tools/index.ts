@@ -11,8 +11,21 @@ import { getContentTool, handleGetContent } from "./getContent.js";
 import { screenshotTool, handleScreenshot } from "./screenshot.js";
 import { startRecordingTool, handleStartRecording } from "./startRecording.js";
 import { stopRecordingTool, handleStopRecording } from "./stopRecording.js";
+import { createSessionTool, handleCreateSession } from "./createSession.js";
+import { listSessionsTool, handleListSessions } from "./listSessions.js";
+import { destroySessionTool, handleDestroySession } from "./destroySession.js";
 
-const tools = [typeTool, sendKeyTool, getContentTool, screenshotTool, startRecordingTool, stopRecordingTool];
+const tools = [
+  typeTool,
+  sendKeyTool,
+  getContentTool,
+  screenshotTool,
+  startRecordingTool,
+  stopRecordingTool,
+  createSessionTool,
+  listSessionsTool,
+  destroySessionTool,
+];
 
 export function registerTools(server: Server, manager: TerminalManager): void {
   // Register list tools handler
@@ -43,6 +56,15 @@ export function registerTools(server: Server, manager: TerminalManager): void {
 
         case "stopRecording":
           return await handleStopRecording(manager, args);
+
+        case "createSession":
+          return await handleCreateSession(manager, args);
+
+        case "listSessions":
+          return handleListSessions(manager, args);
+
+        case "destroySession":
+          return handleDestroySession(manager, args);
 
         default:
           throw new Error(`Unknown tool: ${name}`);

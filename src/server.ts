@@ -10,6 +10,8 @@ export interface ServerOptions {
   cols?: number;
   rows?: number;
   shell?: string;
+  maxSessions?: number;
+  sessionIdleTimeout?: number;
 }
 
 /**
@@ -46,6 +48,8 @@ export function createServer(options: ServerOptions = {}): {
     cols: options.cols,
     rows: options.rows,
     shell: options.shell,
+    maxSessions: options.maxSessions,
+    sessionIdleTimeout: options.sessionIdleTimeout,
   });
 
   const server = createServerWithManager(manager);

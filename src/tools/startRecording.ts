@@ -12,7 +12,7 @@ export const startRecordingSchema = z.object({
 
 export const startRecordingTool = {
   name: "startRecording",
-  description: "Start recording terminal output to an asciicast v2 file. Returns the recording ID and path where the file will be saved. Only one recording can be active at a time.",
+  description: "Start recording terminal output to an asciicast v2 file. Returns the recording ID and path where the file will be saved. Only one recording can be active at a time. Recording captures output from all active sessions in the process.",
   inputSchema: {
     type: "object" as const,
     properties: {

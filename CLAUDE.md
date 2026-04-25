@@ -36,12 +36,14 @@ Terminal MCP is a headless terminal emulator exposed via Model Context Protocol 
 
 **Terminal Layer** (`src/terminal/`):
 - `session.ts`: Core integration of `node-pty` (PTY process) + `@xterm/headless` (terminal emulation). Handles shell-specific prompt customization via temp rc files.
-- `manager.ts`: Singleton wrapper managing session lifecycle
+- `manager.ts`: Multi-session manager. Owns a map of `TerminalSession`s plus a single `RecordingManager` and (optional) `SandboxController`. The "default" session is auto-created on first use and is the implicit target of any tool call without a `sessionId`. Idle non-default sessions are GC'd on a 60s interval.
 
 **Tool Layer** (`src/tools/`):
 - Each tool has: Zod schema, tool definition object, handler function
 - Pattern: `export const fooTool = {...}` + `export function handleFoo(manager, args)`
-- Tools: `type`, `sendKey`, `getContent`, `takeScreenshot` (formats: `text`, `ansi`, `png`)
+- Single-session tools: `type`, `sendKey`, `getContent`, `takeScreenshot` (formats: `text`, `ansi`, `png`). All accept an optional `sessionId` to target a specific session; omit for the default.
+- Recording tools: `startRecording`, `stopRecording`. Recording is process-wide — when active, it captures output from all sessions in the manager.
+- Multi-session tools: `createSession`, `listSessions`, `destroySession`. The default session cannot be destroyed.
 
 **Transport Layer** (`src/transport/`):
 - `socket.ts`: Unix socket server for tool proxying between modes. Also has `SocketTransport` class implementing MCP's Transport interface.

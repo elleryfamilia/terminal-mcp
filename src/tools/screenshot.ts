@@ -6,6 +6,7 @@ export const screenshotSchema = z.object({
   format: z.enum(["text", "ansi", "png"]).optional().describe(
     "Output format: 'text' (default) returns plain JSON, 'ansi' returns text with ANSI color codes, 'png' returns a color screenshot image"
   ),
+  sessionId: z.string().optional().describe("Target session ID. Omit to target the default session."),
 });
 
 export type ScreenshotArgs = z.infer<typeof screenshotSchema>;
@@ -23,6 +24,10 @@ export const screenshotTool = {
         description:
           "Output format: 'text' (default) plain JSON, 'ansi' for colored text with ANSI codes, 'png' for color screenshot image",
       },
+      sessionId: {
+        type: "string",
+        description: "Target session ID. Omit to target the default session.",
+      },
     },
     required: [],
   },
@@ -36,14 +41,14 @@ export function handleScreenshot(
   const format = parsed.format || "text";
 
   if (format === "ansi") {
-    const content = manager.getAnsiContent(true);
-    const buffer = manager.getTerminal().buffer.active;
+    const content = manager.getAnsiContent(true, parsed.sessionId);
+    const buffer = manager.getTerminal(parsed.sessionId).buffer.active;
     const result = {
       content,
       cursor: { x: buffer.cursorX, y: buffer.cursorY },
       dimensions: {
-        cols: manager.getDimensions().cols,
-        rows: manager.getDimensions().rows,
+        cols: manager.getDimensions(parsed.sessionId).cols,
+        rows: manager.getDimensions(parsed.sessionId).rows,
       },
     };
     return {
@@ -57,7 +62,7 @@ export function handleScreenshot(
   }
 
   if (format === "png") {
-    const terminal = manager.getTerminal();
+    const terminal = manager.getTerminal(parsed.sessionId);
     const pngBuffer = renderTerminalToPng(terminal);
 
     return {
@@ -72,7 +77,7 @@ export function handleScreenshot(
   }
 
   // Default text format
-  const screenshot = manager.takeScreenshot();
+  const screenshot = manager.takeScreenshot(parsed.sessionId);
   const result = {
     content: screenshot.content,
     cursor: screenshot.cursor,
