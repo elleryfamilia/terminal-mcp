@@ -1,6 +1,6 @@
 {
   "name": "@ellery/terminal-mcp",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A headless terminal emulator exposed via MCP for AI assistants",
   "author": "Ellery Familia",
   "repository": {
