@@ -22,6 +22,30 @@ Or via install script:
 curl -fsSL https://raw.githubusercontent.com/elleryfamilia/terminal-mcp/main/install.sh | bash
 ```
 
+### Configure your AI tools
+
+Wire `terminal-mcp` into the MCP config of every AI tool installed on your machine in one shot:
+
+```bash
+terminal-mcp setup                      # detect & install for all detected tools
+terminal-mcp setup --dry-run            # preview without writing
+terminal-mcp setup --client claude-code,gemini   # specific tools only
+terminal-mcp setup --uninstall          # remove the entry from each tool
+```
+
+Supported clients (each gets the right schema for its config format):
+
+| Client | Config file | Format |
+|---|---|---|
+| OpenAI Codex CLI | `~/.codex/config.toml` | TOML |
+| GitHub Copilot CLI | `~/.copilot/mcp-config.json` | JSON |
+| Gemini CLI | `~/.gemini/settings.json` | JSON |
+| OpenCode | `~/.config/opencode/opencode.json` | JSON |
+| Claude Code | `~/.claude/settings.json` | JSON |
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) / `%APPDATA%\Claude\claude_desktop_config.json` (Windows) | JSON |
+
+A `.bak` of any pre-existing config is written next to the original on first install. The `terminal-mcp` entry is added without disturbing other servers or unrelated keys; running `setup` again is a no-op.
+
 ### Upgrading
 
 ```bash
