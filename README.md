@@ -22,6 +22,14 @@ Or via install script:
 curl -fsSL https://raw.githubusercontent.com/elleryfamilia/terminal-mcp/main/install.sh | bash
 ```
 
+### Upgrading
+
+```bash
+npm install -g @ellery/terminal-mcp@latest
+```
+
+Interactive mode will print a banner on next launch when a newer release is available — `terminal-mcp` checks the npm registry once per day and caches the result. Headless and MCP-client modes never check or print anything (so MCP stdio stays clean). To opt out entirely, set `NO_UPDATE_NOTIFIER=1` or pass `--no-update-notifier`.
+
 ## Features
 
 - **Full Terminal Emulation**: Uses xterm.js headless for accurate VT100/ANSI emulation
