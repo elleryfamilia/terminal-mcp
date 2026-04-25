@@ -42,19 +42,35 @@ This document describes the technical architecture of Terminal MCP and provides 
 
 ## Core Components
 
+### Operating Modes
+
+Terminal MCP has three operating modes, selected by the `--headless` flag and TTY detection:
+
+| Mode | Condition | Description |
+|------|-----------|-------------|
+| **Headless** | `--headless` flag | Self-contained: spawns embedded PTY, serves MCP over stdio. No socket or TTY needed. Recommended for MCP client configs. |
+| **Interactive** | stdin is TTY | User gets a shell with PTY I/O. Exposes a Unix socket for AI tool access. |
+| **Client** | stdin is not TTY | Connects to an interactive session's socket, proxies MCP tools over stdio. |
+
+**Headless mode** (single process):
+```
+MCP Client → stdio → [MCP Server + TerminalManager + PTY] → Shell
+```
+
+**Interactive + Client** (two processes):
+```
+User Terminal ↔ [Interactive: PTY + Socket Server]
+                        ↕ Unix socket
+MCP Client → stdio → [Client: MCP Server + Socket Proxy]
+```
+
 ### Entry Point (`src/index.ts`)
 
 The entry point handles:
 - Shebang for direct execution (`#!/usr/bin/env node`)
 - Command-line argument parsing
-- Server initialization
+- Mode selection (`--headless` → `startServer()`, TTY → `startInteractiveMode()`, non-TTY → `startMcpClientMode()`)
 - Error handling
-
-```typescript
-#!/usr/bin/env node
-import { startServer } from "./server.js";
-// Parse args and start server
-```
 
 ### MCP Server (`src/server.ts`)
 

@@ -28,7 +28,9 @@ curl -fsSL https://raw.githubusercontent.com/elleryfamilia/terminal-mcp/main/ins
 - **Cross-Platform PTY**: Native pseudo-terminal support via node-pty (macOS, Linux, Windows)
 - **MCP Protocol**: Implements Model Context Protocol for AI assistant integration
 - **Session Recording**: Record terminal sessions to asciicast format for playback with asciinema
-- **Simple API**: Six intuitive tools for complete terminal control
+- **Simple API**: Nine tools covering input, observation, recording, and session lifecycle
+- **Headless Mode**: Run as a standalone MCP server without a TTY — ideal for CI, containers, and non-interactive environments
+- **Multi-Session**: Run multiple isolated terminal sessions in one process, addressed by `sessionId`
 - **Sandbox Mode**: Optional security restrictions for filesystem and network access
 
 ## Building from Source
@@ -76,6 +78,7 @@ Options:
   --cols <number>        Terminal width in columns (default: 120)
   --rows <number>        Terminal height in rows (default: 40)
   --shell <path>         Shell to use (default: $SHELL or bash)
+  --headless             Run in headless mode (embedded PTY + MCP over stdio, no TTY needed)
   --sandbox              Enable sandbox mode (restricts filesystem/network)
   --sandbox-config <path> Load sandbox config from JSON file
   --version, -v          Show version number
@@ -89,9 +92,59 @@ Recording Options:
   --idle-time-limit <sec>   Max idle time between events (default: 2s)
   --max-duration <sec>      Max recording duration (default: 3600s)
   --inactivity-timeout <sec>  Stop after no output (default: 600s)
+
+Multi-Session Options:
+  --max-sessions <n>           Max concurrent sessions (default: 5)
+  --session-idle-timeout <sec> Idle non-default sessions are auto-destroyed
+                               after this period (default: 600s)
 ```
 
+## Headless Mode
+
+By default, Terminal MCP uses a **dual-process architecture**: you run `terminal-mcp` in an interactive terminal (which creates a Unix socket), then your MCP client spawns a second instance that connects to that socket. This requires a TTY.
+
+**Headless mode** (`--headless`) eliminates this requirement by spawning an embedded PTY internally and serving MCP directly over stdio in a single process. No interactive terminal session, no socket — just a self-contained MCP server with a built-in terminal.
+
+### When to use headless mode
+
+- **CI/CD pipelines** — no TTY available
+- **Docker containers** — no interactive shell to run alongside
+- **Remote/cloud environments** — MCP servers spawned by automation
+- **Simplified setup** — single process, no socket coordination needed
+
+### Configuration
+
+```json
+{
+  "mcpServers": {
+    "terminal": {
+      "command": "terminal-mcp",
+      "args": ["--headless", "--cols", "120", "--rows", "40"]
+    }
+  }
+}
+```
+
+### How it works
+
+```
+MCP Client (Claude Code, etc.)
+    │ STDIO (JSON-RPC)
+    ▼
+terminal-mcp --headless
+    ├── MCP Server (stdio transport)
+    ├── Terminal Emulator (@xterm/headless)
+    └── Embedded PTY (node-pty)
+            │
+            ▼
+        Shell Process (bash, zsh, etc.)
+```
+
+In headless mode, the terminal session is initialized eagerly at startup, so all tools (`type`, `sendKey`, `getContent`, `takeScreenshot`, `startRecording`, `stopRecording`, `createSession`, `listSessions`, `destroySession`) are available immediately.
+
 ## MCP Tools
+
+All input/output tools (`type`, `sendKey`, `getContent`, `takeScreenshot`) accept an optional `sessionId` argument. Omit it to target the default session; pass the ID returned by `createSession` to drive a specific session.
 
 ### `type`
 Send text input to the terminal.
@@ -137,14 +190,24 @@ Get the terminal buffer as plain text.
 ```
 
 ### `takeScreenshot`
-Capture the terminal state with cursor position and dimensions.
+Capture the terminal state. Supports three output formats:
+
+| Format | Description |
+|--------|-------------|
+| `text` (default) | JSON with plain text content, cursor position, and dimensions |
+| `ansi` | JSON with ANSI color escape codes preserved in the content field |
+| `png` | Color screenshot as a PNG image (requires `@resvg/resvg-js`) |
 
 ```json
 {
   "name": "takeScreenshot",
-  "arguments": {}
+  "arguments": { "format": "text" }
 }
 ```
+
+The `ansi` format reconstructs SGR escape sequences from the terminal's cell buffer, preserving 16-color, 256-color, and 24-bit truecolor attributes along with bold, dim, italic, and underline styles.
+
+The `png` format returns an MCP `image` content block with base64-encoded PNG data, rendered with the One Dark color theme and macOS-style window chrome.
 
 ### `startRecording`
 Start recording terminal output to an asciicast v2 file.
@@ -178,6 +241,62 @@ Stop a recording and finalize the asciicast file.
   }
 }
 ```
+
+### `createSession`
+Create a new terminal session and return its metadata. Use the returned `sessionId` to target this session in subsequent tool calls.
+
+```json
+{
+  "name": "createSession",
+  "arguments": {
+    "shell": "/bin/zsh",
+    "cols": 100,
+    "rows": 30
+  }
+}
+```
+
+All arguments are optional. Returns:
+
+```json
+{
+  "sessionId": "3029d",
+  "shell": "/bin/zsh",
+  "cols": 100,
+  "rows": 30,
+  "createdAt": "2026-04-25T12:58:01.072Z",
+  "lastActivityAt": "2026-04-25T12:58:01.072Z",
+  "isDefault": false
+}
+```
+
+### `listSessions`
+List all active sessions including the default. Reports configured limits.
+
+```json
+{ "name": "listSessions", "arguments": {} }
+```
+
+### `destroySession`
+Destroy a session by ID. The default session cannot be destroyed.
+
+```json
+{
+  "name": "destroySession",
+  "arguments": { "sessionId": "3029d" }
+}
+```
+
+## Multi-Session
+
+By default, every tool call without a `sessionId` targets a single auto-created **default session** — the same behavior the project has always had. Pass `sessionId` to drive multiple isolated PTYs from one process.
+
+- The default session is created on first use and cannot be destroyed.
+- Additional sessions are created by `createSession` and tracked until they're destroyed or idle-evicted (`--session-idle-timeout`, default 600s).
+- Concurrent sessions are capped at `--max-sessions` (default 5).
+- An active recording captures output from all sessions in the process.
+
+Typical use case: an AI agent driving a long-running build in one session while running diagnostics in another, without command interleaving.
 
 ## Sandbox Mode
 
@@ -282,17 +401,40 @@ This enables AI-driven workflows like "record this debugging session" or "captur
 
 ## Architecture
 
+Terminal MCP has three operating modes:
+
+| Mode | Flag | Stdin | Description |
+|------|------|-------|-------------|
+| **Interactive** | *(default)* | TTY | User gets a shell; AI connects via Unix socket |
+| **Client** | *(default)* | non-TTY | Connects to an interactive session's socket, serves MCP over stdio |
+| **Headless** | `--headless` | any | Self-contained: embedded PTY + MCP server over stdio |
+
+### Headless mode (recommended for MCP configs)
+
 ```
 MCP Client (Claude Code, etc.)
     │ STDIO (JSON-RPC)
     ▼
-Terminal MCP Server (Node.js)
+terminal-mcp --headless
     ├── MCP SDK (@modelcontextprotocol/sdk)
     ├── Terminal Emulator (@xterm/headless)
-    └── PTY Manager (node-pty)
+    └── Embedded PTY (node-pty)
             │
             ▼
         Shell Process (bash, zsh, etc.)
+```
+
+### Interactive + Client mode (two-process)
+
+```
+terminal-mcp (interactive, in your terminal)
+    ├── User shell (stdin/stdout)
+    └── Unix socket server (/tmp/terminal-mcp.sock)
+            ▲
+            │ JSON-RPC over socket
+            ▼
+terminal-mcp (client, spawned by MCP client)
+    └── MCP server (stdio transport)
 ```
 
 ## Example Session

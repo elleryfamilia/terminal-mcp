@@ -58,10 +58,17 @@ export const toolDefinitions: ToolDefinition[] = [
   {
     name: "takeScreenshot",
     description:
-      "Take a screenshot of the terminal showing current screen and cursor position",
+      "Take a screenshot of the terminal. Format 'text' (default) returns plain JSON. Format 'ansi' returns JSON with ANSI color escape codes preserved. Format 'png' returns a color screenshot image.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        format: {
+          type: "string",
+          enum: ["text", "ansi", "png"],
+          description:
+            "Output format: 'text' (default) plain JSON, 'ansi' for colored text with ANSI codes, 'png' for color screenshot image",
+        },
+      },
     },
   },
   {

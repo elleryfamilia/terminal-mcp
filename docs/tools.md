@@ -248,42 +248,41 @@ Retrieve the terminal buffer content as plain text.
 
 ## takeScreenshot
 
-Capture the current terminal state including content, cursor position, and dimensions.
+Capture the current terminal state. Supports three output formats for different use cases.
 
 ### Parameters
 
-None.
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `format` | string | No | `text` | Output format: `text`, `ansi`, or `png` |
 
-### Returns
+### Formats
 
+#### `text` (default)
+
+Returns plain text content with cursor position and dimensions. Color information is stripped.
+
+**Response:**
 ```json
 {
   "content": [
     {
       "type": "text",
-      "text": "{\"content\":\"...\",\"cursor\":{\"x\":0,\"y\":5},\"dimensions\":{\"cols\":120,\"rows\":40}}"
+      "text": "{\n  \"content\": \"user@host:~$ █\",\n  \"cursor\": { \"x\": 14, \"y\": 0 },\n  \"dimensions\": { \"cols\": 120, \"rows\": 40 }\n}"
     }
   ]
 }
 ```
 
-The text content is a JSON string with the following structure:
+#### `ansi`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `content` | string | Visible terminal content |
-| `cursor.x` | number | Cursor column position (0-indexed) |
-| `cursor.y` | number | Cursor row position (0-indexed) |
-| `dimensions.cols` | number | Terminal width in columns |
-| `dimensions.rows` | number | Terminal height in rows |
-
-### Example
+Returns content with ANSI color escape codes preserved. Reconstructs SGR sequences from the terminal's cell buffer, supporting 16-color, 256-color, 24-bit truecolor, bold, dim, italic, and underline attributes.
 
 **Request:**
 ```json
 {
   "name": "takeScreenshot",
-  "arguments": {}
+  "arguments": { "format": "ansi" }
 }
 ```
 
@@ -293,17 +292,52 @@ The text content is a JSON string with the following structure:
   "content": [
     {
       "type": "text",
-      "text": "{\n  \"content\": \"user@host:~$ █\",\n  \"cursor\": {\n    \"x\": 14,\n    \"y\": 0\n  },\n  \"dimensions\": {\n    \"cols\": 120,\n    \"rows\": 40\n  }\n}"
+      "text": "{\n  \"content\": \"\\u001b[31mERROR\\u001b[0m: file not found\",\n  \"cursor\": { \"x\": 0, \"y\": 1 },\n  \"dimensions\": { \"cols\": 120, \"rows\": 40 }\n}"
     }
   ]
 }
 ```
 
+#### `png`
+
+Returns a color screenshot as a PNG image with full ANSI color rendering, One Dark theme, and macOS-style window chrome. Requires `@resvg/resvg-js` to be installed.
+
+**Request:**
+```json
+{
+  "name": "takeScreenshot",
+  "arguments": { "format": "png" }
+}
+```
+
+**Response:**
+```json
+{
+  "content": [
+    {
+      "type": "image",
+      "data": "<base64-encoded PNG>",
+      "mimeType": "image/png"
+    }
+  ]
+}
+```
+
+### Response Fields (text and ansi formats)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `content` | string | Visible terminal content (plain or ANSI-colored) |
+| `cursor.x` | number | Cursor column position (0-indexed) |
+| `cursor.y` | number | Cursor row position (0-indexed) |
+| `dimensions.cols` | number | Terminal width in columns |
+| `dimensions.rows` | number | Terminal height in rows |
+
 ### Use Cases
 
-- Determine cursor position for navigation
-- Verify terminal dimensions for TUI applications
-- Get a structured snapshot of terminal state
+- **`text`**: Read command output, check cursor position, verify dimensions
+- **`ansi`**: Capture colored output for logs, diagnostics, or re-rendering in a terminal
+- **`png`**: Generate visual screenshots for documentation, sharing, or visual verification
 
 ---
 

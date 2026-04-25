@@ -267,6 +267,123 @@ ${bannerCmd}
   }
 
   /**
+   * Get terminal content with ANSI color escape sequences preserved.
+   * Reads the xterm.js cell buffer and reconstructs SGR sequences.
+   */
+  getAnsiContent(visibleOnly = false): string {
+    if (this.disposed) {
+      throw new Error("Terminal session has been disposed");
+    }
+
+    const buffer = this.terminal.buffer.active;
+    const lines: string[] = [];
+
+    const startLine = visibleOnly ? buffer.baseY : 0;
+    const endLine = visibleOnly ? buffer.baseY + this.terminal.rows : buffer.length;
+
+    for (let y = startLine; y < endLine; y++) {
+      const line = buffer.getLine(y);
+      if (!line) {
+        lines.push("");
+        continue;
+      }
+
+      let lineStr = "";
+      let lastFg = -999;
+      let lastFgMode = -999;
+      let lastBg = -999;
+      let lastBgMode = -999;
+      let lastBold = false;
+      let lastDim = false;
+      let lastItalic = false;
+      let lastUnderline = false;
+
+      for (let x = 0; x < line.length; x++) {
+        const cell = line.getCell(x);
+        if (!cell) continue;
+        const char = cell.getChars();
+
+        const fg = cell.getFgColor();
+        const fgMode = cell.getFgColorMode();
+        const bg = cell.getBgColor();
+        const bgMode = cell.getBgColorMode();
+        const bold = cell.isBold() === 1;
+        const dim = cell.isDim() === 1;
+        const italic = cell.isItalic() === 1;
+        const underline = cell.isUnderline() === 1;
+
+        const attrChanged =
+          fg !== lastFg || fgMode !== lastFgMode ||
+          bg !== lastBg || bgMode !== lastBgMode ||
+          bold !== lastBold || dim !== lastDim ||
+          italic !== lastItalic || underline !== lastUnderline;
+
+        if (attrChanged) {
+          const sgr: string[] = [];
+
+          // Reset if we had any prior styling
+          if (lastFgMode !== -999) sgr.push("0");
+
+          if (bold) sgr.push("1");
+          if (dim) sgr.push("2");
+          if (italic) sgr.push("3");
+          if (underline) sgr.push("4");
+
+          // Foreground
+          if (fgMode === 0x1000000) {
+            // P16
+            sgr.push(fg < 8 ? `${30 + fg}` : `${90 + fg - 8}`);
+          } else if (fgMode === 0x2000000) {
+            // P256
+            sgr.push(`38;5;${fg}`);
+          } else if (fgMode === 0x3000000) {
+            // RGB
+            sgr.push(`38;2;${(fg >> 16) & 0xFF};${(fg >> 8) & 0xFF};${fg & 0xFF}`);
+          }
+
+          // Background
+          if (bgMode === 0x1000000) {
+            sgr.push(bg < 8 ? `${40 + bg}` : `${100 + bg - 8}`);
+          } else if (bgMode === 0x2000000) {
+            sgr.push(`48;5;${bg}`);
+          } else if (bgMode === 0x3000000) {
+            sgr.push(`48;2;${(bg >> 16) & 0xFF};${(bg >> 8) & 0xFF};${bg & 0xFF}`);
+          }
+
+          if (sgr.length > 0) {
+            lineStr += `\x1b[${sgr.join(";")}m`;
+          }
+
+          lastFg = fg;
+          lastFgMode = fgMode;
+          lastBg = bg;
+          lastBgMode = bgMode;
+          lastBold = bold;
+          lastDim = dim;
+          lastItalic = italic;
+          lastUnderline = underline;
+        }
+
+        lineStr += char || " ";
+      }
+
+      // Reset at end of line if we emitted any SGR
+      if (lastFgMode !== -999) {
+        lineStr += "\x1b[0m";
+      }
+
+      lines.push(lineStr);
+    }
+
+    // Trim trailing empty lines
+    while (lines.length > 0 && lines[lines.length - 1].replace(/\x1b\[[0-9;]*m/g, "").trim() === "") {
+      lines.pop();
+    }
+
+    return lines.join("\n");
+  }
+
+  /**
    * Get only the visible viewport content
    */
   getVisibleContent(): string {
@@ -342,6 +459,17 @@ ${bannerCmd}
    */
   isActive(): boolean {
     return !this.disposed;
+  }
+
+  /**
+   * Get the underlying xterm.js Terminal instance for direct buffer access.
+   * Used by the color screenshot renderer.
+   */
+  getTerminal(): InstanceType<typeof Terminal> {
+    if (this.disposed) {
+      throw new Error("Terminal session has been disposed");
+    }
+    return this.terminal;
   }
 
   /**
