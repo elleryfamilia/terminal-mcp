@@ -7,6 +7,7 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { toolDefinitions } from "./tools/definitions.js";
+import { installStdioShutdownHandlers } from "./utils/shutdown.js";
 
 interface SocketRequest {
   id: number;
@@ -26,6 +27,10 @@ interface SocketResponse {
 export async function startMcpClientMode(socketPath: string): Promise<void> {
   // Connect to the interactive terminal's socket
   const socket = await connectToSocket(socketPath);
+
+  // Nothing to release — the OS reclaims the socket fd on exit. We install this
+  // only for the stdin-EOF -> exit wiring (the socket keeps the loop alive).
+  const shutdownState = installStdioShutdownHandlers({ cleanup: () => {} });
 
   // Create MCP server
   const server = new Server(
@@ -84,6 +89,9 @@ export async function startMcpClientMode(socketPath: string): Promise<void> {
   });
 
   socket.on("close", () => {
+    // The peer may FIN as we are already on our way out. Without this guard a
+    // clean detach would exit 1 instead of 0.
+    if (shutdownState.isShuttingDown()) return;
     console.error("Socket closed");
     process.exit(1);
   });
