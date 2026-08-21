@@ -57,6 +57,7 @@ export class TerminalManager {
   private defaultSessionId: string | null = null;
   private defaultSessionPromise: Promise<TerminalSession> | null = null;
   private idleCheckInterval: NodeJS.Timeout | null = null;
+  private disposed = false;
 
   private options: TerminalManagerOptions;
   private sandboxController?: SandboxController;
@@ -87,6 +88,18 @@ export class TerminalManager {
   // ---------------------------------------------------------------------------
   // Session lookup helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Kill a session that finished spawning after dispose() had already swept the
+   * map. Callers must invoke this immediately after every `await
+   * TerminalSession.create()` — the session is not in this.sessions yet, so
+   * dispose() cannot reach it and it would otherwise outlive the process.
+   */
+  private abortIfDisposed(session: TerminalSession): void {
+    if (!this.disposed) return;
+    session.dispose();
+    throw new Error("TerminalManager was disposed during session creation");
+  }
 
   private generateSessionId(): string {
     while (true) {
@@ -132,6 +145,11 @@ export class TerminalManager {
    * Get or create the default session. Idempotent and concurrency-safe.
    */
   async getSessionAsync(): Promise<TerminalSession> {
+    // Refuse before spawning; abortIfDisposed() below is the post-await backstop.
+    if (this.disposed) {
+      throw new Error("TerminalManager has been disposed");
+    }
+
     if (this.defaultSessionId) {
       const entry = this.sessions.get(this.defaultSessionId);
       if (entry && entry.session.isActive()) {
@@ -150,6 +168,7 @@ export class TerminalManager {
         ...this.options,
         sandboxController: this.sandboxController,
       });
+      this.abortIfDisposed(session);
       const id = this.generateSessionId();
       const dims = session.getDimensions();
       const now = new Date().toISOString();
@@ -235,6 +254,9 @@ export class TerminalManager {
    * Create a new non-default session.
    */
   async createSession(opts: CreateSessionOptions = {}): Promise<SessionMetadata> {
+    if (this.disposed) {
+      throw new Error("TerminalManager has been disposed");
+    }
     if (this.sessions.size >= this.maxSessions) {
       throw new Error(
         `Maximum session limit reached (${this.maxSessions}). ` +
@@ -251,6 +273,7 @@ export class TerminalManager {
       startupBanner: undefined,
       sandboxController: this.sandboxController,
     });
+    this.abortIfDisposed(session);
     const dims = session.getDimensions();
     const now = new Date().toISOString();
     const metadata: SessionMetadata = {
@@ -405,6 +428,7 @@ export class TerminalManager {
   }
 
   dispose(): void {
+    this.disposed = true;
     if (this.idleCheckInterval) {
       clearInterval(this.idleCheckInterval);
       this.idleCheckInterval = null;

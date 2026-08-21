@@ -5,6 +5,7 @@ import { TerminalManager } from "./terminal/index.js";
 import { VERSION } from "./utils/version.js";
 import { registerTools } from "./tools/index.js";
 import { registerPrompts } from "./prompts/index.js";
+import { installStdioShutdownHandlers } from "./utils/shutdown.js";
 
 export interface ServerOptions {
   cols?: number;
@@ -88,21 +89,24 @@ export async function connectServer(server: Server, transport: Transport): Promi
 export async function startServer(options: ServerOptions = {}): Promise<void> {
   const { server, manager } = createServer(options);
 
+  // Install BEFORE initSession(): that call spawns the PTY, so a signal
+  // arriving mid-spawn would otherwise orphan the shell. This is also the only
+  // path that can reach dispose() during startup, which is what makes the
+  // `disposed` guard in TerminalManager live rather than dead code.
+  installStdioShutdownHandlers({
+    cleanup: () => {
+      // dispose() is synchronous and kills the PTY, so it survives the 'exit'
+      // path. finalizeRecordings() runs first only so its synchronous prefix
+      // lands there too; its async tail needs a live event loop.
+      const finalized = manager.finalizeRecordings(0);
+      manager.dispose();
+      return finalized.then(() => undefined);
+    },
+  });
+
   // Eagerly initialize the terminal session so tools can use it immediately
   await manager.initSession();
 
   const transport = new StdioServerTransport();
-
-  // Handle graceful shutdown
-  process.on("SIGINT", () => {
-    manager.dispose();
-    process.exit(0);
-  });
-
-  process.on("SIGTERM", () => {
-    manager.dispose();
-    process.exit(0);
-  });
-
   await server.connect(transport);
 }
