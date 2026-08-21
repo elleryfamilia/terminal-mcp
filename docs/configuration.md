@@ -143,14 +143,22 @@ The simplest setup — no separate interactive session needed:
 }
 ```
 
-### Using npx (After Publishing)
+### Using npx
+
+Runs the published package without installing it globally. Note the scoped
+name: an unrelated placeholder package occupies the unscoped `terminal-mcp`,
+so `npx terminal-mcp` would fetch the wrong thing.
+
+`--headless` is required here. Without it, stdin is not a TTY when an MCP
+client spawns the process, so it starts in MCP client mode and tries to
+connect to the Unix socket of an interactive session that isn't running.
 
 ```json
 {
   "mcpServers": {
     "terminal": {
       "command": "npx",
-      "args": ["terminal-mcp", "--cols", "80", "--rows", "24"]
+      "args": ["-y", "@ellery/terminal-mcp", "--headless", "--cols", "80", "--rows", "24"]
     }
   }
 }
