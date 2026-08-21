@@ -16,6 +16,14 @@
   "bin": {
     "terminal-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "logo.png",
+    "sandbox-permissions.png",
+    "tsconfig.json"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
