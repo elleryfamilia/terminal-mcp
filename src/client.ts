@@ -25,6 +25,10 @@ interface SocketResponse {
  * MCP Client Mode - connects to existing terminal socket and serves MCP over stdio
  */
 export async function startMcpClientMode(socketPath: string): Promise<void> {
+  // How long a socket close waits for a stdin EOF that would mark this as a
+  // clean mutual shutdown rather than the interactive session dying alone.
+  const SOCKET_CLOSE_GRACE_MS = 100;
+
   // Connect to the interactive terminal's socket
   const socket = await connectToSocket(socketPath);
 
@@ -89,11 +93,16 @@ export async function startMcpClientMode(socketPath: string): Promise<void> {
   });
 
   socket.on("close", () => {
-    // The peer may FIN as we are already on our way out. Without this guard a
-    // clean detach would exit 1 instead of 0.
     if (shutdownState.isShuttingDown()) return;
-    console.error("Socket closed");
-    process.exit(1);
+    // The interactive session and the MCP host often go away together (user
+    // quits the terminal, host detaches). If the socket close is dequeued
+    // first, exiting 1 immediately would mislabel a clean mutual teardown —
+    // give an imminent stdin EOF a moment to start the clean shutdown instead.
+    setTimeout(() => {
+      if (shutdownState.isShuttingDown()) return;
+      console.error("Socket closed");
+      process.exit(1);
+    }, SOCKET_CLOSE_GRACE_MS);
   });
 
   // Helper to send request to interactive terminal

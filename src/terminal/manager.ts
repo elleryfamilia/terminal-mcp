@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { TerminalSession, TerminalSessionOptions, ScreenshotResult } from "./session.js";
 import type { SandboxController } from "../sandbox/index.js";
 import { RecordingManager } from "../recording/index.js";
-import type { RecordingMode, RecordingFormat, RecordingMetadata } from "../recording/index.js";
+import type { RecordingMode, RecordingFormat, RecordingMetadata, StopReason } from "../recording/index.js";
 import { getDefaultRecordDir } from "../utils/platform.js";
 
 export interface TerminalManagerOptions extends TerminalSessionOptions {
@@ -423,8 +423,11 @@ export class TerminalManager {
     return this.recordingManager;
   }
 
-  async finalizeRecordings(exitCode: number): Promise<RecordingMetadata[]> {
-    return this.recordingManager.finalizeAll(exitCode);
+  async finalizeRecordings(
+    exitCode: number | null,
+    stopReason?: StopReason
+  ): Promise<RecordingMetadata[]> {
+    return this.recordingManager.finalizeAll(exitCode, stopReason);
   }
 
   dispose(): void {

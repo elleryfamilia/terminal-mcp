@@ -98,7 +98,9 @@ export async function startServer(options: ServerOptions = {}): Promise<void> {
       // dispose() is synchronous and kills the PTY, so it survives the 'exit'
       // path. finalizeRecordings() runs first only so its synchronous prefix
       // lands there too; its async tail needs a live event loop.
-      const finalized = manager.finalizeRecordings(0);
+      // The shell has NOT exited — the client detached — so report exitCode
+      // null and a shutdown stop reason, not a fabricated clean exit.
+      const finalized = manager.finalizeRecordings(null, "server_shutdown");
       manager.dispose();
       return finalized.then(() => undefined);
     },
