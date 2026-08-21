@@ -125,6 +125,12 @@ The `stopReason` indicates why the recording stopped:
 - `session_exit` - Terminal session ended
 - `max_duration` - Reached maximum duration limit
 - `inactivity` - No terminal output for the timeout period
+- `server_shutdown` - The MCP client disconnected (or the server was signalled) while the recording was still active
+
+The recorded `exitCode` is `null` when the shell never exited, which is the
+case for `server_shutdown`, `max_duration`, and `inactivity`. Because
+`on-failure` mode saves only on a non-zero shell exit, a recording stopped for
+any of those reasons is discarded rather than written to disk.
 
 ### Example Workflow
 
