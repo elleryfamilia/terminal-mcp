@@ -50,7 +50,7 @@ export type AsciicastEvent = AsciicastOutputEvent | AsciicastResizeEvent;
 /**
  * Reason why recording stopped
  */
-export type StopReason = 'explicit' | 'session_exit' | 'max_duration' | 'inactivity';
+export type StopReason = 'explicit' | 'session_exit' | 'max_duration' | 'inactivity' | 'server_shutdown';
 
 /**
  * Metadata returned after finalizing a recording

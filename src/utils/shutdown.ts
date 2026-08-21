@@ -36,10 +36,23 @@ export function installStdioShutdownHandlers({ cleanup }: ShutdownOptions): {
     const hardExit = setTimeout(() => process.exit(code), CLEANUP_TIMEOUT_MS);
     hardExit.unref();
 
+    // A response may still be sitting in stdout's buffer (the client can close
+    // our stdin and then read stdout to EOF); exiting immediately would
+    // truncate it. An empty write's callback fires only after everything
+    // queued before it has been flushed. The hard-exit timer above still
+    // bounds a client that never drains the pipe.
+    const exitAfterStdoutDrain = () => {
+      process.stdout.write("", () => process.exit(code));
+    };
+
     Promise.resolve()
       .then(cleanup)
-      .catch(() => {})
-      .finally(() => process.exit(code));
+      .catch((err) => {
+        // stderr is safe in stdio MCP mode; a stranded recording or failed
+        // teardown must not vanish without a trace.
+        console.error("[terminal-mcp] Shutdown cleanup failed:", err);
+      })
+      .finally(exitAfterStdoutDrain);
   };
 
   process.on("SIGINT", () => shutdown(0));
