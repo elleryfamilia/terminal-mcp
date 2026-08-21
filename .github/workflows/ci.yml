@@ -33,3 +33,30 @@ jobs:
 
       - name: Verify CLI runs
         run: node dist/index.js --help
+
+  test:
+    # The shutdown tests spawn real PTYs and drive the built server over stdio.
+    # Windows is excluded: its PTY layer and default shell make the terminal
+    # assertions a different test, not the same one on another OS.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node-version: [20, 22]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test

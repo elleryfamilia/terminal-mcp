@@ -3,46 +3,38 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { sleep, waitFor, sendRpc, stdoutText } from "./helpers.mjs";
+import { spawnNode, sleep, waitFor, callTool, findResponse, initialize } from "./helpers.mjs";
 
 test("recording finalized at shutdown records an honest exit code and stop reason", async () => {
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "tmcp-rec-test-"));
-  const state = { stdout: [] };
-  const child = spawn(process.execPath, ["dist/index.js", "--headless"], {
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  state.child = child;
-  child.stdout.on("data", (d) => state.stdout.push(d));
-  let exit = null;
-  child.on("exit", (code, signal) => (exit = { code, signal }));
+  const state = spawnNode(["dist/index.js", "--headless"]);
 
   try {
-    sendRpc(state, {
-      jsonrpc: "2.0", id: 1, method: "initialize",
-      params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "test", version: "0" } },
-    });
-    await waitFor(() => stdoutText(state).includes('"id":1'));
-    sendRpc(state, { jsonrpc: "2.0", method: "notifications/initialized" });
+    await initialize(state);
 
-    sendRpc(state, {
-      jsonrpc: "2.0", id: 2, method: "tools/call",
-      params: { name: "startRecording", arguments: { mode: "always", outputDir: outDir } },
-    });
-    await waitFor(() => stdoutText(state).includes('"id":2'));
+    callTool(state, 2, "startRecording", { mode: "always", outputDir: outDir });
+    await waitFor(() => findResponse(state, 2));
 
-    // Generate some terminal output so the recording has content.
-    sendRpc(state, {
-      jsonrpc: "2.0", id: 3, method: "tools/call",
-      params: { name: "type", arguments: { text: "echo recorded\r" } },
-    });
-    await waitFor(() => stdoutText(state).includes('"id":3'));
-    await sleep(800);
+    // Drive real terminal output so the recording has content to finalize.
+    callTool(state, 3, "type", { text: "echo recorded\r" });
+    await waitFor(() => findResponse(state, 3));
 
-    // The MCP client detaches without stopping the recording.
-    child.stdin.end();
-    await waitFor(() => exit !== null);
-    assert.equal(exit.code, 0, `expected clean exit, got ${JSON.stringify(exit)}`);
+    // Wait for the output to actually reach the screen (and therefore the
+    // recorder, which is wired to the same onData stream) rather than
+    // guessing with a fixed sleep.
+    let sawOutput = false;
+    for (let probeId = 100; probeId < 120 && !sawOutput; probeId++) {
+      callTool(state, probeId, "getContent");
+      const res = await waitFor(() => findResponse(state, probeId));
+      sawOutput = JSON.stringify(res).includes("recorded");
+      if (!sawOutput) await sleep(100);
+    }
+    assert.ok(sawOutput, "terminal output should reach the screen before shutdown");
+
+    // The MCP client detaches without ever calling stopRecording.
+    state.child.stdin.end();
+    await waitFor(() => state.exit !== null);
+    assert.equal(state.exit.code, 0, `expected clean exit, got ${JSON.stringify(state.exit)}`);
 
     const metaFile = await waitFor(() =>
       fs.readdirSync(outDir).find((f) => f.endsWith(".meta.json"))
@@ -56,8 +48,9 @@ test("recording finalized at shutdown records an honest exit code and stop reaso
       "server_shutdown",
       `stopReason should be server_shutdown, got ${meta.stopReason}`
     );
+    assert.ok(meta.bytesWritten > 0, "recording should have captured terminal output");
   } finally {
-    if (exit === null) child.kill("SIGKILL");
+    if (state.exit === null) state.child.kill("SIGKILL");
     fs.rmSync(outDir, { recursive: true, force: true });
   }
 });

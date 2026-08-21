@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { sleep, waitFor } from "./helpers.mjs";
+import { waitFor } from "./helpers.mjs";
 
 const FIVE_MB = 5 * 1024 * 1024;
 
@@ -16,8 +16,9 @@ test("stdin EOF shutdown drains buffered stdout before exiting", async () => {
 
   // Wait until the fixture has issued its 5MB write, WITHOUT reading stdout —
   // the OS pipe buffer (~64KB) fills and the rest stays queued in the child.
+  // READY is written only after that write call has been issued, so its
+  // arrival already establishes the state under test.
   await waitFor(() => stderr.includes("READY"));
-  await sleep(200);
 
   // Client-style shutdown: close stdin, then read stdout until EOF.
   child.stdin.end();

@@ -98,11 +98,14 @@ export async function startMcpClientMode(socketPath: string): Promise<void> {
     // quits the terminal, host detaches). If the socket close is dequeued
     // first, exiting 1 immediately would mislabel a clean mutual teardown —
     // give an imminent stdin EOF a moment to start the clean shutdown instead.
-    setTimeout(() => {
+    const graceTimer = setTimeout(() => {
       if (shutdownState.isShuttingDown()) return;
       console.error("Socket closed");
       process.exit(1);
     }, SOCKET_CLOSE_GRACE_MS);
+    // stdin keeps the loop alive here, so this timer never needs to; unref'ing
+    // it keeps that an implementation detail rather than a load-bearing one.
+    graceTimer.unref();
   });
 
   // Helper to send request to interactive terminal
