@@ -41,7 +41,7 @@ Supported clients (each gets the right schema for its config format):
 | GitHub Copilot CLI | `~/.copilot/mcp-config.json` | JSON |
 | Gemini CLI | `~/.gemini/settings.json` | JSON |
 | OpenCode | `~/.config/opencode/opencode.json` | JSON |
-| Claude Code | `~/.claude/settings.json` | JSON |
+| Claude Code | `~/.claude.json` | JSON |
 | Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) / `%APPDATA%\Claude\claude_desktop_config.json` (Windows) | JSON |
 
 A `.bak` of any pre-existing config is written next to the original on first install. The `terminal-mcp` entry is added without disturbing other servers or unrelated keys; running `setup` again is a no-op.
