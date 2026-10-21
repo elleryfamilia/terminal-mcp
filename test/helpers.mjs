@@ -69,3 +69,20 @@ export async function initialize(state, id = 1) {
   sendRpc(state, { jsonrpc: "2.0", method: "notifications/initialized" });
   return response;
 }
+
+/** A minimal responder for the newline-delimited {id, method, params} protocol
+ * client.ts speaks, with correct per-connection line buffering (a chunk is not
+ * guaranteed to contain exactly one full line). */
+export function respondOk(conn) {
+  let buf = "";
+  conn.on("data", (d) => {
+    buf += d.toString();
+    const lines = buf.split("\n");
+    buf = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const req = JSON.parse(line);
+      conn.write(JSON.stringify({ id: req.id, result: { content: [{ type: "text", text: "ok" }] } }) + "\n");
+    }
+  });
+}

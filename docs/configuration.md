@@ -125,7 +125,17 @@ The simplest setup — no separate interactive session needed:
 }
 ```
 
+This is **client mode**: it proxies to a separate interactive session you run yourself (`terminal-mcp`, or `node /path/to/terminal-mcp/dist/index.js`). See "Interactive + Client mode" in the README for the full workflow.
+
 ### With Custom Options
+
+`--cols`, `--rows`, and `--shell` configure the **interactive session**'s terminal, not the client config above - the client itself has no terminal to size or shell to pick. Pass them to the interactive launch instead:
+
+```sh
+node /path/to/terminal-mcp/dist/index.js --cols 100 --rows 30 --shell /bin/zsh
+```
+
+Using headless mode instead? Pass them directly in that configuration's `args`, since the embedded PTY lives in the same process:
 
 ```json
 {
@@ -134,6 +144,7 @@ The simplest setup — no separate interactive session needed:
       "command": "node",
       "args": [
         "/path/to/terminal-mcp/dist/index.js",
+        "--headless",
         "--cols", "100",
         "--rows", "30",
         "--shell", "/bin/zsh"
@@ -150,8 +161,10 @@ name: an unrelated placeholder package occupies the unscoped `terminal-mcp`,
 so `npx terminal-mcp` would fetch the wrong thing.
 
 `--headless` is required here. Without it, stdin is not a TTY when an MCP
-client spawns the process, so it starts in MCP client mode and tries to
-connect to the Unix socket of an interactive session that isn't running.
+client spawns the process, so it starts in MCP client mode: it stays up and
+serves tool listings fine, but every tool call fails with a friendly error
+until a separate interactive `terminal-mcp` session exists at the same
+socket path. `--headless` sidesteps needing one at all.
 
 ```json
 {
@@ -301,14 +314,14 @@ For most use cases, memory usage is minimal (< 50MB).
 
 ### Process Lifetime
 
-The terminal session lives for the duration of the MCP connection. When the AI assistant disconnects:
+In **headless mode**, the terminal session lives for the duration of the MCP connection, in the same process. When the AI assistant disconnects:
 
 1. SIGTERM is sent to gracefully shutdown
 2. The PTY process is killed
 3. All resources are cleaned up
 
+In **client mode**, the PTY lives in the separate interactive `terminal-mcp` process, not the client process the MCP host spawns. The client disconnecting (or the host restarting it) only closes that proxy connection - the interactive session and its shell keep running until you exit it or it crashes on its own.
+
 ### Concurrent Sessions
 
-Currently, Terminal MCP supports a single terminal session. The session is created on first tool use and persists until shutdown.
-
-Future versions may support multiple named sessions.
+Terminal MCP supports multiple named sessions in headless mode (see "Multi-Session" in the README): a default session is initialized eagerly at startup and persists until shutdown, and additional sessions can be created on demand with `createSession`, capped at `--max-sessions` (default 5). Client mode always targets the single interactive session it's connected to - it has no `sessionId` or multi-session tools.

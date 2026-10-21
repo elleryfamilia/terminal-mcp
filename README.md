@@ -62,7 +62,7 @@ Interactive mode will print a banner on next launch when a newer release is avai
 - **Session Recording**: Record terminal sessions to asciicast format for playback with asciinema
 - **Simple API**: Nine tools covering input, observation, recording, and session lifecycle
 - **Headless Mode**: Run as a standalone MCP server without a TTY — ideal for CI, containers, and non-interactive environments
-- **Multi-Session**: Run multiple isolated terminal sessions in one process, addressed by `sessionId`
+- **Multi-Session**: Run multiple isolated terminal sessions in one process, addressed by `sessionId` (headless mode only - client mode proxies a single interactive session)
 - **Sandbox Mode**: Optional security restrictions for filesystem and network access
 
 ## Building from Source
@@ -88,18 +88,21 @@ Add to your MCP client settings:
 }
 ```
 
-With custom options:
+This `"command": "terminal-mcp"` entry (no `--headless`) starts **client mode**: it serves MCP tool listing right away, but each tool call proxies to a separate **interactive session** you run yourself, so you can watch and drive the same terminal the AI uses. Open a terminal and run:
 
-```json
-{
-  "mcpServers": {
-    "terminal": {
-      "command": "terminal-mcp",
-      "args": ["--cols", "100", "--rows", "30", "--shell", "/bin/zsh"]
-    }
-  }
-}
+```sh
+terminal-mcp
 ```
+
+and leave it open while you want the AI to use it. Either process can start first, and the order doesn't matter:
+
+- No interactive session running yet: your MCP host's `terminal-mcp` server still connects and lists tools fine; a tool call (`type`, `sendKey`, etc.) returns a friendly error telling you to run `terminal-mcp` and try again.
+- Start the interactive session any time after: the next tool call connects to it automatically. No need to restart your MCP host or client.
+- Close the interactive session (or it crashes) while the host stays connected: the next tool call reconnects to a new interactive session the same way, once you start one. A call already in flight when the session drops gets a clear error instead of hanging or being silently retried.
+- Using a custom `--socket` path? Pass the same `--socket <path>` to both the interactive session and the MCP client config's `args`, so they agree on where to connect.
+- Need a custom size or shell? `--cols`/`--rows`/`--shell` configure the **interactive session**, not this client config - the client itself has no terminal to size or shell to pick. Pass them to the interactive launch instead: `terminal-mcp --cols 100 --rows 30 --shell /bin/zsh`.
+
+If you'd rather not run a separate interactive session at all, see **Headless Mode** below - it is self-contained and needs no second process.
 
 ### Command-Line Options
 
@@ -176,7 +179,9 @@ In headless mode, the terminal session is initialized eagerly at startup, so all
 
 ## MCP Tools
 
-All input/output tools (`type`, `sendKey`, `getContent`, `takeScreenshot`) accept an optional `sessionId` argument. Omit it to target the default session; pass the ID returned by `createSession` to drive a specific session.
+`createSession`, `listSessions`, and `destroySession` (below), along with the `sessionId` argument on the input/output tools, are **headless mode only**. Client mode proxies six tools (`type`, `sendKey`, `getContent`, `takeScreenshot`, `startRecording`, `stopRecording`) against the single interactive session it connects to; it has no session to create, list, or destroy, and `sessionId` has nothing to target.
+
+All input/output tools (`type`, `sendKey`, `getContent`, `takeScreenshot`) accept an optional `sessionId` argument in headless mode. Omit it to target the default session; pass the ID returned by `createSession` to drive a specific session.
 
 ### `type`
 Send text input to the terminal.
@@ -274,7 +279,7 @@ Stop a recording and finalize the asciicast file.
 }
 ```
 
-### `createSession`
+### `createSession` *(headless mode only)*
 Create a new terminal session and return its metadata. Use the returned `sessionId` to target this session in subsequent tool calls.
 
 ```json
@@ -302,14 +307,14 @@ All arguments are optional. Returns:
 }
 ```
 
-### `listSessions`
+### `listSessions` *(headless mode only)*
 List all active sessions including the default. Reports configured limits.
 
 ```json
 { "name": "listSessions", "arguments": {} }
 ```
 
-### `destroySession`
+### `destroySession` *(headless mode only)*
 Destroy a session by ID. The default session cannot be destroyed.
 
 ```json
@@ -319,11 +324,11 @@ Destroy a session by ID. The default session cannot be destroyed.
 }
 ```
 
-## Multi-Session
+## Multi-Session *(headless mode only)*
 
-By default, every tool call without a `sessionId` targets a single auto-created **default session** — the same behavior the project has always had. Pass `sessionId` to drive multiple isolated PTYs from one process.
+By default, every tool call without a `sessionId` targets a single auto-created **default session** - the same behavior the project has always had. Pass `sessionId` to drive multiple isolated PTYs from one process. Client mode has no `sessionId` or multi-session tools - it always targets the single interactive session it's connected to.
 
-- The default session is created on first use and cannot be destroyed.
+- The default session is initialized eagerly at startup and cannot be destroyed.
 - Additional sessions are created by `createSession` and tracked until they're destroyed or idle-evicted (`--session-idle-timeout`, default 600s).
 - Concurrent sessions are capped at `--max-sessions` (default 5).
 - An active recording captures output from all sessions in the process.
