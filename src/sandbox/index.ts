@@ -18,6 +18,8 @@ export type {
   WrappedCommand,
 } from "./controller.js";
 
+export { sandboxConfigFor } from "./controller.js";
+
 export {
   SandboxController,
 } from "./controller.js";

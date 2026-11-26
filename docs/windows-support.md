@@ -97,6 +97,21 @@ srt-win is never discovered on its own — the runtime only reads
 check failed with "no srt-win path configured" however well the backend was
 installed; the windows-latest CI job is what caught it.
 
+The command line is parsed by `cmd.exe /d /s /c` (the runtime's default inner
+shell) rather than by the user's shell, because `quoteShellArg` emits cmd rules.
+Pointing the wrapper at `pwsh`/`bash` instead would have it parse a cmd-quoted
+executable path, where a quoted path is a string expression and never a command.
+
+Known gaps in a sandboxed Windows session, both from the runtime's design of
+running the child as a separate `srt-sandbox` user:
+
+- The child starts from that user's fresh profile and receives only the
+  `--env` overlay the runtime builds (PATH, proxy, git config). Our prompt
+  customisation (`PROMPT` for cmd.exe, the `TERMINAL_MCP_*` banner variables)
+  does not reach it, so the sandboxed shell shows its default prompt.
+- Read-only paths are granted explicitly via `filesystem.allowRead`, since the
+  sandbox user does not inherit the caller's read access.
+
 On Windows the `srt-win` backend also needs its one-time setup (sandbox user and
 network filters). Until that is done, `--sandbox` prints what is missing —
 including the install command — and exits rather than starting an unconfined

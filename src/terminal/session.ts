@@ -210,9 +210,11 @@ ${bannerCmd}
       );
       spawnCmd = wrapped.cmd;
       spawnArgs = wrapped.args;
-      // The sandbox runtime builds the environment a sandboxed command gets
-      // (proxy settings, git config on Windows); our prompt overrides still
-      // have to survive on top of it.
+      // macOS/Linux hand back `process.env`, so this is a no-op there. On
+      // Windows it is the environment for the srt-win broker only: the
+      // sandboxed child starts from a fresh `srt-sandbox` profile and gets
+      // whatever the wrapper passed as `--env` (PATH, proxy, git config), so
+      // the prompt overrides below do not reach it (see docs/windows-support.md).
       if (wrapped.env) {
         spawnEnv = { ...wrapped.env, ...env } as Record<string, string>;
       }

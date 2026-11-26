@@ -193,16 +193,18 @@ bridge; without it the dependency check fails and the sandbox stays off):
 
 ```bash
 # Debian/Ubuntu
-sudo apt install bubblewrap socat
+sudo apt install bubblewrap socat ripgrep
 
 # Fedora
-sudo dnf install bubblewrap socat
+sudo dnf install bubblewrap socat ripgrep
 
 # Arch
-sudo pacman -S bubblewrap socat
+sudo pacman -S bubblewrap socat ripgrep
 ```
 
-`ripgrep` (`rg`) is also used to expand glob deny-patterns on Linux.
+`ripgrep` (`rg`) expands glob deny-patterns on Linux — but the dependency check
+requires it unconditionally, so `--sandbox` refuses to start without it even if
+you configure no globs.
 
 ### Windows Setup
 

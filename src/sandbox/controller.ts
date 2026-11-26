@@ -44,6 +44,73 @@ export function quoteShellArg(arg: string): string {
 }
 
 /**
+ * Turn our permission model into sandbox-runtime configuration.
+ *
+ * Exported (and platform-parameterised) so the platform-specific parts can be
+ * asserted from a single test run: the Windows branches are otherwise only
+ * reachable on a Windows host with a provisioned sandbox.
+ */
+export function sandboxConfigFor(
+  permissions: SandboxPermissions,
+  platform: SandboxPlatform
+): SandboxRuntimeConfig {
+  const expandPaths = (paths: string[]): string[] => paths.map((p) => expandPath(p));
+
+  // Configure network based on mode
+  let allowedDomains: string[];
+  const deniedDomains: string[] = [];
+
+  switch (permissions.network.mode) {
+    case "none":
+      // Block all network by using empty allowed list
+      allowedDomains = [];
+      break;
+    case "allowlist":
+      allowedDomains = permissions.network.allowedDomains ?? [];
+      break;
+    case "all":
+    default:
+      // Allow all network access with wildcard
+      allowedDomains = ["*"];
+      break;
+  }
+
+  const config: SandboxRuntimeConfig = {
+    filesystem: {
+      // Read/write paths go to allowWrite
+      allowWrite: expandPaths(permissions.filesystem.readWrite),
+      // Blocked paths go to denyRead (blocks both read and write)
+      denyRead: expandPaths(permissions.filesystem.blocked),
+      // Read-only paths: allow read, deny write. On macOS/Linux that is the
+      // default for anything not in allowWrite, so no allowRead entry is
+      // needed; Windows is different (see below).
+      denyWrite: [],
+    },
+    network: {
+      allowedDomains,
+      deniedDomains,
+    },
+    // Enable PTY support since we're spawning a shell
+    allowPty: true,
+  };
+
+  if (platform === "win32") {
+    // srt-win is not discovered on its own: the runtime only reads
+    // windows.srtWin.path, and without it the dependency check fails with
+    // "no srt-win path configured". Name the binary shipped in the package.
+    config.windows = { srtWin: { path: VENDORED_SRT_WIN_EXE } };
+
+    // The Windows sandbox runs commands as a separate `srt-sandbox` user with
+    // write-restricted token, so it does not inherit the caller's read access
+    // the way a POSIX child does. Read-only paths have to be granted
+    // explicitly or the documented default (`~` readable) is simply denied.
+    config.filesystem!.allowRead = expandPaths(permissions.filesystem.readOnly);
+  }
+
+  return config;
+}
+
+/**
  * Controller that wraps sandbox-runtime for terminal-mcp
  * Manages sandbox lifecycle and command wrapping
  */
@@ -119,10 +186,10 @@ export class SandboxController {
       case "linux":
         return [
           "To install on Arch Linux:",
-          "  sudo pacman -S bubblewrap socat",
+          "  sudo pacman -S bubblewrap socat ripgrep",
           "",
           "To install on Debian/Ubuntu:",
-          "  sudo apt install bubblewrap socat",
+          "  sudo apt install bubblewrap socat ripgrep",
         ];
       case "win32":
         // sandbox-runtime refuses to initialize until this one-time install
@@ -165,55 +232,7 @@ export class SandboxController {
    * Convert our permission model to sandbox-runtime config format
    */
   private toSandboxConfig(permissions: SandboxPermissions): SandboxRuntimeConfig {
-    // Expand all paths
-    const expandPaths = (paths: string[]): string[] =>
-      paths.map((p) => expandPath(p));
-
-    // Configure network based on mode
-    let allowedDomains: string[];
-    let deniedDomains: string[] = [];
-
-    switch (permissions.network.mode) {
-      case "none":
-        // Block all network by using empty allowed list
-        allowedDomains = [];
-        break;
-      case "allowlist":
-        allowedDomains = permissions.network.allowedDomains ?? [];
-        break;
-      case "all":
-      default:
-        // Allow all network access with wildcard
-        allowedDomains = ["*"];
-        break;
-    }
-
-    const config: SandboxRuntimeConfig = {
-      filesystem: {
-        // Read/write paths go to allowWrite
-        allowWrite: expandPaths(permissions.filesystem.readWrite),
-        // Blocked paths go to denyRead (blocks both read and write)
-        denyRead: expandPaths(permissions.filesystem.blocked),
-        // Read-only paths: we want to allow read but deny write
-        // Paths not in allowWrite are read-only by default
-        denyWrite: [],
-      },
-      network: {
-        allowedDomains,
-        deniedDomains,
-      },
-      // Enable PTY support since we're spawning a shell
-      allowPty: true,
-    };
-
-    if (this.platform === "win32") {
-      // srt-win is not discovered on its own: the runtime only reads
-      // windows.srtWin.path, and without it the dependency check fails with
-      // "no srt-win path configured". Name the binary shipped in the package.
-      config.windows = { srtWin: { path: VENDORED_SRT_WIN_EXE } };
-    }
-
-    return config;
+    return sandboxConfigFor(permissions, this.platform);
   }
 
   /**
@@ -305,9 +324,15 @@ export class SandboxController {
     const command = [shell, ...args].map(quoteShellArg).join(" ");
 
     if (this.platform === "win32") {
+      // The inner shell parses this command line, so the two have to agree:
+      // quoteShellArg emits cmd.exe rules, and the default inner shell is
+      // `cmd.exe /d /s /c`. So cmd launches the user's shell instead of the
+      // user's shell being handed the command line — passing `shell` here
+      // would have pwsh/powershell/bash parse a cmd-quoted path, where a
+      // quoted executable is a string expression and never a command.
       const { argv, env } = await SandboxManager.wrapWithSandboxArgv(
         command,
-        shell,
+        undefined,
         undefined,
         undefined,
         cwd

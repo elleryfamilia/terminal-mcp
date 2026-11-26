@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SandboxController } from "../dist/sandbox/controller.js";
+import os from "node:os";
+import { SandboxController, sandboxConfigFor } from "../dist/sandbox/controller.js";
 
 // These hold on windows-latest, which is where the Windows sandbox path is
 // actually exercised. Nothing here needs a provisioned sandbox: the point is
@@ -117,4 +118,42 @@ test("a controller that was never initialized reports itself inactive", async ()
   assert.equal(controller.getPermissions(), null);
   await controller.cleanup(); // must not throw
   assert.equal(controller.isActive(), false);
+});
+
+test("Windows config grants reads and names the packaged backend", () => {
+  // Both of these only matter on Windows, where the sandbox runs as a
+  // write-restricted `srt-sandbox` user: it does not inherit the caller's read
+  // access, so read-only paths must be granted, and srt-win is never found on
+  // its own. Asserted here so a Linux or macOS run still covers them.
+  const permissions = {
+    filesystem: { readWrite: ["."], readOnly: ["~"], blocked: ["~/.ssh"] },
+    network: { mode: "all" },
+  };
+
+  const windows = sandboxConfigFor(permissions, "win32");
+  assert.ok(windows.windows?.srtWin?.path, "windows.srtWin.path must be set");
+  assert.match(windows.windows.srtWin.path, /srt-win(\.exe)?$|srt-win[\\/]/, "should point at srt-win");
+  // readOnly: ["~"] — expandPath turns that into the home directory.
+  assert.deepEqual(
+    windows.filesystem?.allowRead,
+    [os.homedir()],
+    "read-only paths must be granted on Windows"
+  );
+  assert.deepEqual(windows.filesystem?.allowWrite, [process.cwd()]);
+
+  // macOS/Linux allow reads by default, so they must not be narrowed.
+  for (const platform of ["linux", "darwin"]) {
+    const posix = sandboxConfigFor(permissions, platform);
+    assert.equal(posix.windows, undefined, `${platform} should not carry Windows config`);
+    assert.equal(posix.filesystem?.allowRead, undefined, `${platform} should not narrow reads`);
+  }
+});
+
+test("Linux setup instructions cover every dependency the check demands", () => {
+  if (isWindows) return;
+  const instructions = new SandboxController().setupInstructions().join("\n");
+  // checkDependencies() fails on a missing rg, not just bwrap and socat.
+  for (const tool of ["bubblewrap", "socat", "ripgrep"]) {
+    assert.ok(instructions.includes(tool), `instructions should mention ${tool}`);
+  }
 });
