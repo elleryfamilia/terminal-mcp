@@ -91,10 +91,21 @@ assuming Linux, and wraps to an **argv array** on Windows via
 between would re-expand the command and defeat the sandbox. macOS/Linux keep
 the string form run through `/bin/sh -c`.
 
+srt-win is never discovered on its own — the runtime only reads
+`windows.srtWin.path` — so the config now names the packaged
+`vendor/srt-win/<arch>/srt-win.exe` (`VENDORED_SRT_WIN_EXE`). Without that, the
+check failed with "no srt-win path configured" however well the backend was
+installed; the windows-latest CI job is what caught it.
+
 On Windows the `srt-win` backend also needs its one-time setup (sandbox user and
-network filters). Until that is done, `--sandbox` prints what is missing and
-exits rather than starting an unconfined shell — it no longer silently falls
-back to an unsandboxed session.
+network filters). Until that is done, `--sandbox` prints what is missing —
+including the install command — and exits rather than starting an unconfined
+shell; it no longer silently falls back to an unsandboxed session.
+
+Because the runtime only reads `windows.srtWin.path` from configuration it has
+already been given, the pre-flight check cannot see it: on Windows the
+pre-flight verifies the packaged binary, and `initialize()` (which runs with the
+config applied) reports the host prerequisites.
 
 ## Platform-Specific Code Paths
 

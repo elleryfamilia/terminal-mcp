@@ -204,6 +204,18 @@ sudo pacman -S bubblewrap socat
 
 `ripgrep` (`rg`) is also used to expand glob deny-patterns on Linux.
 
+### Windows Setup
+
+The `srt-win` backend needs a one-time install (one UAC prompt) that creates a
+`srt-sandbox` user and its network filters. `--sandbox` prints the exact
+command when it is missing — run it, then start `--sandbox` again. The
+`firewall`/WFP filters are keyed to that user's SID, so your normal network is
+unaffected and no logout is needed.
+
+The helper binary ships in the package (`vendor/srt-win/<arch>/srt-win.exe`) and
+is passed to the runtime as `windows.srtWin.path`; nothing extra to install for
+that part.
+
 ## Known Limitations
 
 ### Syscall Restrictions

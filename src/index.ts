@@ -403,8 +403,10 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
     } else {
       // If we get here, something unexpected failed during initialization
       console.error(`[terminal-mcp] Error: Failed to initialize sandbox: ${status.reason}`);
+      // On Windows the runtime already puts its install command in the reason;
+      // say it twice only when it did not.
       const setupInstructions = sandboxController.setupInstructions();
-      if (setupInstructions.length > 0) {
+      if (setupInstructions.length > 0 && !status.reason?.includes(setupInstructions[0])) {
         console.error("");
         for (const line of setupInstructions) console.error(line);
       }
