@@ -20,8 +20,11 @@ test("Windows is offered the sandbox instead of being refused", () => {
   assert.equal(new SandboxController().isSupported(), true);
 });
 
-test("dependency check resolves rather than throwing", { timeout: 120_000 }, async () => {
+test("dependency check resolves rather than throwing", { timeout: 120_000 }, async (t) => {
   const check = await new SandboxController().checkDependencies();
+  // Recorded as a diagnostic so CI shows what each platform actually reports
+  // instead of only asserting that it answered.
+  t.diagnostic(`${process.platform}: supported=${check.supported} message=${check.message ?? "(none)"}`);
 
   assert.equal(typeof check.supported, "boolean");
   if (check.supported) {
