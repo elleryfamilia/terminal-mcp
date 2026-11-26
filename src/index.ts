@@ -403,6 +403,11 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
     } else {
       // If we get here, something unexpected failed during initialization
       console.error(`[terminal-mcp] Error: Failed to initialize sandbox: ${status.reason}`);
+      const setupInstructions = sandboxController.setupInstructions();
+      if (setupInstructions.length > 0) {
+        console.error("");
+        for (const line of setupInstructions) console.error(line);
+      }
       console.error("[terminal-mcp] Please run without the --sandbox flag or fix the issue above.");
       process.exit(1);
     }

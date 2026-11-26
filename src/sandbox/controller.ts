@@ -85,6 +85,22 @@ export class SandboxController {
    * Windows it is the only form that can probe the backend at all.
    */
   async checkDependencies(): Promise<SandboxDependencyCheck> {
+    if (this.platform === "win32") {
+      // The runtime reads windows.srtWin.path out of configuration it has
+      // already been given, so a pre-flight check cannot see the binary wired
+      // up in toSandboxConfig() and would always answer "no srt-win path
+      // configured". Check the packaged binary directly instead, and leave the
+      // host-level prerequisites (sandbox user, WFP filters) to initialize(),
+      // which runs with the config in place and reports them properly.
+      if (!fs.existsSync(VENDORED_SRT_WIN_EXE)) {
+        return {
+          supported: false,
+          message: `packaged srt-win binary is missing at ${VENDORED_SRT_WIN_EXE}`,
+        };
+      }
+      return { supported: true };
+    }
+
     const depCheck = await SandboxManager.checkDependenciesAsync();
     const supported = depCheck.errors.length === 0;
     return {

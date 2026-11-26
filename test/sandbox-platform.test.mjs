@@ -68,6 +68,30 @@ test(
   }
 );
 
+test("initialize() reports Windows prerequisites rather than a missing binary", { timeout: 180_000 }, async (t) => {
+  // The pre-flight check above cannot see windows.srtWin.path, so this is the
+  // one that proves the config is actually applied: initialize() runs with the
+  // config in place, and on an unprovisioned runner must name the host
+  // prerequisite it wants (sandbox user / WFP filters), not the binary.
+  if (!isWindows) return;
+
+  const controller = new SandboxController();
+  const status = await controller.initialize({
+    filesystem: { readWrite: ["."], readOnly: [], blocked: [] },
+    network: { mode: "none" },
+  });
+  t.diagnostic(`win32 initialize(): enabled=${status.enabled} reason=${status.reason ?? "(none)"}`);
+
+  if (!status.enabled) {
+    assert.ok(status.reason && status.reason.length > 0, "a refusal must say why");
+    assert.ok(
+      !status.reason.includes("no srt-win path configured"),
+      `windows.srtWin.path should be applied by initialize(), got: ${status.reason}`
+    );
+  }
+  await controller.cleanup();
+});
+
 test("failed dependency checks come with instructions for this platform", () => {
   const instructions = new SandboxController().setupInstructions().join("\n");
 
