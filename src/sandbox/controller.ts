@@ -6,6 +6,7 @@ import {
   type SandboxRuntimeConfig,
 } from "@anthropic-ai/sandbox-runtime";
 import { SandboxPermissions, expandPath } from "./config.js";
+import { createRequire } from "module";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -45,33 +46,93 @@ export function quoteShellArg(arg: string): string {
 }
 
 /**
- * Windows `cmd.exe /c` expands `%NAME%` even inside double quotes, so a shell
- * path containing a percent-delimited segment cannot be launched from a
- * command string without changing its meaning. Refusing is better than
- * silently starting a different executable.
+ * Refuse the Windows shell invocations the command-string path cannot carry.
+ *
+ * Both of these would otherwise fail in ways that are hard to read from the
+ * user's side, on a platform this project cannot exercise in CI (the sandbox
+ * needs a provisioned Windows host):
+ *
+ * - `%NAME%`: cmd.exe expands it even inside double quotes, so a different
+ *   executable would be launched.
+ * - A path with a space: node-pty hands an argument that already starts and
+ *   ends with `"` straight through, escaping the inner quotes to `\"`. Those
+ *   become literal quotes for srt-win's parser rather than opening a quoted
+ *   section, so the space splits the argument and the command is truncated.
+ *   `C:\Windows\System32\cmd.exe` (the default) is unaffected; shells under
+ *   `C:\Program Files` are.
  */
-export function assertLaunchableThroughCmd(argv: string[]): void {
-  const suspect = argv.find((arg) => /%[^%\s]+%/.test(arg));
-  if (suspect !== undefined) {
+export function assertLaunchableThroughCmd(shell: string, args: string[]): void {
+  const percent = [shell, ...args].find((arg) => /%[^%\s]+%/.test(arg));
+  if (percent !== undefined) {
     throw new Error(
-      `Sandbox cannot launch ${JSON.stringify(suspect)}: cmd.exe would expand the ` +
+      `Sandbox cannot launch ${JSON.stringify(percent)}: cmd.exe would expand the ` +
         `percent-delimited segment. Point --shell at a path without '%' characters.`
+    );
+  }
+
+  if (/\s/.test(shell)) {
+    throw new Error(
+      `Sandbox cannot launch ${JSON.stringify(shell)}: the path contains a space, ` +
+        `and a quoted command cannot survive the Windows argv round trip yet. ` +
+        `Use a shell under a path without spaces (e.g. C:\\Windows\\System32\\cmd.exe) ` +
+        `or run without --sandbox. See docs/windows-support.md.`
     );
   }
 }
 
 /**
  * Windows read grants may not reach what the one-time install's profile grant
- * excludes, so granting the profile root itself is refused at initialize().
- * The runtime already grants the profile minus those exclusions; only narrower
- * read-only paths need a grant of their own.
+ * excludes, so a session grant for the profile root (or anything above it) is
+ * refused at initialize(). The runtime already grants the profile minus those
+ * exclusions, so only narrower paths need a grant of their own.
+ *
+ * Split out rather than filtered silently: a user who explicitly asks for a
+ * read path needs to know it was not applied.
  */
-function grantsBeyondProfileRoot(paths: string[]): string[] {
+export function windowsReadGrants(readOnly: string[]): {
+  grantable: string[];
+  dropped: string[];
+} {
   const home = path.resolve(os.homedir()).toLowerCase();
-  return paths.filter((entry) => {
+  const grantable: string[] = [];
+  const dropped: string[] = [];
+
+  for (const entry of readOnly) {
     const resolved = path.resolve(entry).toLowerCase();
-    return resolved !== home && !home.startsWith(resolved + path.sep);
-  });
+    const atOrAboveProfileRoot =
+      resolved === home || home.startsWith(resolved + path.sep);
+    (atOrAboveProfileRoot ? dropped : grantable).push(entry);
+  }
+
+  return { grantable, dropped };
+}
+
+/**
+ * Version of the sandbox runtime that is actually installed.
+ *
+ * The setup command it prints is unversioned, and `npx` would then provision
+ * whatever release is newest — a different setup marker from the bundled
+ * srt-win, which would still refuse to start.
+ */
+function sandboxRuntimeVersion(): string | undefined {
+  try {
+    return createRequire(import.meta.url)("@anthropic-ai/sandbox-runtime/package.json").version;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The Windows one-time install, pinned to the runtime this build uses. */
+export function windowsSetupInstructions(): string[] {
+  const version = sandboxRuntimeVersion();
+  const text = windowsInstallInstructions({});
+  return (version
+    ? text.replaceAll(
+        "npx @anthropic-ai/sandbox-runtime ",
+        `npx @anthropic-ai/sandbox-runtime@${version} `
+      )
+    : text
+  ).split("\n");
 }
 
 /**
@@ -136,9 +197,9 @@ export function sandboxConfigFor(
     // the way a POSIX child does. Read-only paths have to be granted
     // explicitly — except the profile root, which the install already grants
     // and which a session grant would be refused for.
-    config.filesystem!.allowRead = grantsBeyondProfileRoot(
+    config.filesystem!.allowRead = windowsReadGrants(
       expandPaths(permissions.filesystem.readOnly)
-    );
+    ).grantable;
   }
 
   return config;
@@ -228,7 +289,7 @@ export class SandboxController {
       case "win32":
         // sandbox-runtime refuses to initialize until this one-time install
         // has run, so print the command it wants rather than a bare error.
-        return windowsInstallInstructions({}).split("\n");
+        return windowsSetupInstructions();
       default:
         return [];
     }
@@ -299,6 +360,22 @@ export class SandboxController {
       };
     }
 
+    // A read path that cannot be granted is a security-relevant surprise: say
+    // so instead of quietly running with less access than requested.
+    if (this.platform === "win32") {
+      const { dropped } = windowsReadGrants(
+        permissions.filesystem.readOnly.map((p) => expandPath(p))
+      );
+      for (const entry of dropped) {
+        console.error(
+          `[terminal-mcp] Warning: read-only path ${entry} is at or above the ` +
+            `Windows profile root and was not granted; the sandbox install ` +
+            `already grants the profile minus its exclusions. Grant narrower ` +
+            `directories instead.`
+        );
+      }
+    }
+
     // Clean up any sandbox artifacts from previous runs
     // (see cleanupSandboxArtifacts: only a no-op unless a stub survived a kill)
     this.cleanupSandboxArtifacts();
@@ -309,6 +386,14 @@ export class SandboxController {
 
       this.initialized = true;
       this.permissions = permissions;
+
+      // The runtime can succeed while warning that a stale profile grant left
+      // an excluded path readable; entering the session unaware would be wrong.
+      if (this.platform === "win32") {
+        for (const warning of SandboxManager.getWindowsProfileReadWarnings()) {
+          console.error(`[terminal-mcp] Warning: ${warning.message}`);
+        }
+      }
 
       return {
         enabled: true,
@@ -364,7 +449,7 @@ export class SandboxController {
     const command = [shell, ...args].map(quoteShellArg).join(" ");
 
     if (this.platform === "win32") {
-      assertLaunchableThroughCmd([shell, ...args]);
+      assertLaunchableThroughCmd(shell, args);
 
       // The inner shell parses this command line, so the two have to agree:
       // quoteShellArg emits cmd.exe rules, and the default inner shell is

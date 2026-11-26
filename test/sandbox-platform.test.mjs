@@ -6,6 +6,8 @@ import {
   SandboxController,
   assertLaunchableThroughCmd,
   sandboxConfigFor,
+  windowsReadGrants,
+  windowsSetupInstructions,
 } from "../dist/sandbox/controller.js";
 
 // These hold on windows-latest, which is where the Windows sandbox path is
@@ -174,14 +176,50 @@ test("Linux setup instructions cover every dependency the check demands", () => 
   }
 });
 
-test("Windows refuses shell paths cmd.exe would rewrite", () => {
+test("Windows refuses shell invocations the command string cannot carry", () => {
   // cmd expands %NAME% even inside double quotes, so launching such a path
   // would start a different executable than configured.
   assert.throws(
-    () => assertLaunchableThroughCmd(["C:\\Users\\me\\%TEMP%\\shell.exe"]),
+    () => assertLaunchableThroughCmd("C:\\Users\\me\\%TEMP%\\shell.exe", []),
     /cmd\.exe would expand/
   );
-  // A lone percent is not an expansion, and normal paths are untouched.
-  assert.doesNotThrow(() => assertLaunchableThroughCmd(["cmd.exe", "/d", "/s", "/c"]));
-  assert.doesNotThrow(() => assertLaunchableThroughCmd(["C:\\50% off\\shell.exe"]));
+
+  // A spaced path cannot survive node-pty -> srt-win argv -> cmd /c: the inner
+  // quotes end up escaped, so the space splits the argument.
+  assert.throws(
+    () => assertLaunchableThroughCmd("C:\\Program Files\\Git\\bin\\bash.exe", []),
+    /contains a space/
+  );
+
+  // The default shells stay launchable: no space, and a lone percent is not an
+  // expansion (%NAME% is).
+  assert.doesNotThrow(() =>
+    assertLaunchableThroughCmd("C:\\Windows\\System32\\cmd.exe", ["-NoLogo"])
+  );
+  assert.doesNotThrow(() => assertLaunchableThroughCmd("C:\\50%off\\shell.exe", []));
+});
+
+test("Windows read grants report what they cannot apply", () => {
+  const narrower = path.join(os.homedir(), "projects");
+  const { grantable, dropped } = windowsReadGrants([os.homedir(), path.dirname(os.homedir()), narrower]);
+
+  assert.deepEqual(grantable, [narrower], "narrower paths are grantable");
+  assert.deepEqual(
+    dropped,
+    [os.homedir(), path.dirname(os.homedir())],
+    "the profile root and anything above it must be reported, not silently dropped"
+  );
+});
+
+test("the Windows setup command provisions the runtime this build uses", async () => {
+  const { createRequire } = await import("node:module");
+  const installed = createRequire(import.meta.url)("@anthropic-ai/sandbox-runtime/package.json").version;
+  const instructions = windowsSetupInstructions();
+
+  const npx = instructions.find((line) => line.includes("npx "));
+  assert.ok(npx, `expected an npx line, got: ${instructions.join(" | ")}`);
+  assert.ok(
+    npx.includes(`@anthropic-ai/sandbox-runtime@${installed}`),
+    `setup must pin the installed version ${installed}, got: ${npx}`
+  );
 });

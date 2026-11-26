@@ -119,6 +119,19 @@ running the child as a separate `srt-sandbox` user:
   not print the banner or its socket path.
 - A `--shell` path containing a `%NAME%` segment is refused: `cmd.exe` expands
   it even inside quotes, which would launch a different executable.
+- A `--shell` path containing a space is refused too. The invocation goes
+  through node-pty -> srt-win argv -> `cmd.exe /c`, and node-pty hands an
+  argument that already starts and ends with `"` straight through with its
+  quotes escaped (`\"`). srt-win's parser reads those as literal quotes rather
+  than opening a quoted section, so the space splits the argument and the
+  command is truncated. `C:\Windows\System32\cmd.exe` is unaffected; shells
+  under `C:\Program Files` (Git Bash, PowerShell 7) cannot be sandboxed until
+  that round trip is fixed.
+
+Taken together: treat sandbox mode on Windows as **experimental**. It is wired
+against the runtime's contract and its decisions are covered by CI, but no
+end-to-end run on a provisioned Windows host has happened yet — the checks in
+this section are the ones to confirm first.
 
 On Windows the `srt-win` backend also needs its one-time setup (sandbox user and
 network filters). Until that is done, `--sandbox` prints what is missing —
