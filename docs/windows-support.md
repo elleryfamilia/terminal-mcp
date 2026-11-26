@@ -110,7 +110,15 @@ running the child as a separate `srt-sandbox` user:
   customisation (`PROMPT` for cmd.exe, the `TERMINAL_MCP_*` banner variables)
   does not reach it, so the sandboxed shell shows its default prompt.
 - Read-only paths are granted explicitly via `filesystem.allowRead`, since the
-  sandbox user does not inherit the caller's read access.
+  sandbox user does not inherit the caller's read access. The profile root
+  (`~`) is deliberately *not* granted: the one-time install already grants the
+  profile minus its exclusions, and a session grant that reached an exclusion
+  is refused at `initialize()`.
+- Because the child keeps that user's default prompt, the `⚡` marker the
+  startup banner waits for never appears, so a sandboxed Windows session does
+  not print the banner or its socket path.
+- A `--shell` path containing a `%NAME%` segment is refused: `cmd.exe` expands
+  it even inside quotes, which would launch a different executable.
 
 On Windows the `srt-win` backend also needs its one-time setup (sandbox user and
 network filters). Until that is done, `--sandbox` prints what is missing —

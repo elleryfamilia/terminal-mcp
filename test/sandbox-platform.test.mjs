@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
-import { SandboxController, sandboxConfigFor } from "../dist/sandbox/controller.js";
+import path from "node:path";
+import {
+  SandboxController,
+  assertLaunchableThroughCmd,
+  sandboxConfigFor,
+} from "../dist/sandbox/controller.js";
 
 // These hold on windows-latest, which is where the Windows sandbox path is
 // actually exercised. Nothing here needs a provisioned sandbox: the point is
@@ -32,6 +37,13 @@ test("the packaged srt-win binary is configured on Windows", { timeout: 120_000 
   assert.ok(
     !check.message?.includes("no srt-win path configured"),
     `windows.srtWin.path should point at the packaged binary, got: ${check.message}`
+  );
+  // The pre-flight only stats the packaged executable, so it can pass on an
+  // otherwise unprovisioned runner — and must fail loudly if it is missing.
+  assert.equal(
+    check.supported,
+    true,
+    `the packaged srt-win binary should be present: ${check.message}`
   );
 });
 
@@ -125,19 +137,22 @@ test("Windows config grants reads and names the packaged backend", () => {
   // write-restricted `srt-sandbox` user: it does not inherit the caller's read
   // access, so read-only paths must be granted, and srt-win is never found on
   // its own. Asserted here so a Linux or macOS run still covers them.
+  const narrower = path.join(os.homedir(), "readable-dir");
   const permissions = {
-    filesystem: { readWrite: ["."], readOnly: ["~"], blocked: ["~/.ssh"] },
+    filesystem: { readWrite: ["."], readOnly: ["~", narrower], blocked: ["~/.ssh"] },
     network: { mode: "all" },
   };
 
   const windows = sandboxConfigFor(permissions, "win32");
   assert.ok(windows.windows?.srtWin?.path, "windows.srtWin.path must be set");
   assert.match(windows.windows.srtWin.path, /srt-win(\.exe)?$|srt-win[\\/]/, "should point at srt-win");
-  // readOnly: ["~"] — expandPath turns that into the home directory.
+  // The install already grants the profile minus its exclusions, and a session
+  // grant that reached an exclusion would be refused at initialize() — so `~`
+  // must not appear, while a narrower read-only path must.
   assert.deepEqual(
     windows.filesystem?.allowRead,
-    [os.homedir()],
-    "read-only paths must be granted on Windows"
+    [narrower],
+    "grant narrower read-only paths on Windows, never the profile root"
   );
   assert.deepEqual(windows.filesystem?.allowWrite, [process.cwd()]);
 
@@ -150,10 +165,23 @@ test("Windows config grants reads and names the packaged backend", () => {
 });
 
 test("Linux setup instructions cover every dependency the check demands", () => {
-  if (isWindows) return;
+  // setupInstructions() is empty on macOS, so this is Linux-only.
+  if (process.platform !== "linux") return;
   const instructions = new SandboxController().setupInstructions().join("\n");
   // checkDependencies() fails on a missing rg, not just bwrap and socat.
   for (const tool of ["bubblewrap", "socat", "ripgrep"]) {
     assert.ok(instructions.includes(tool), `instructions should mention ${tool}`);
   }
+});
+
+test("Windows refuses shell paths cmd.exe would rewrite", () => {
+  // cmd expands %NAME% even inside double quotes, so launching such a path
+  // would start a different executable than configured.
+  assert.throws(
+    () => assertLaunchableThroughCmd(["C:\\Users\\me\\%TEMP%\\shell.exe"]),
+    /cmd\.exe would expand/
+  );
+  // A lone percent is not an expansion, and normal paths are untouched.
+  assert.doesNotThrow(() => assertLaunchableThroughCmd(["cmd.exe", "/d", "/s", "/c"]));
+  assert.doesNotThrow(() => assertLaunchableThroughCmd(["C:\\50% off\\shell.exe"]));
 });

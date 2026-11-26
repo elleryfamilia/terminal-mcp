@@ -7,6 +7,7 @@ import {
 } from "@anthropic-ai/sandbox-runtime";
 import { SandboxPermissions, expandPath } from "./config.js";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 export type SandboxPlatform = "darwin" | "linux" | "win32" | "unsupported";
@@ -41,6 +42,36 @@ export function quoteShellArg(arg: string): string {
     return /^[A-Za-z0-9_.:\/\\-]+$/.test(arg) ? arg : `"${arg.replace(/"/g, '""')}"`;
   }
   return `'${arg.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Windows `cmd.exe /c` expands `%NAME%` even inside double quotes, so a shell
+ * path containing a percent-delimited segment cannot be launched from a
+ * command string without changing its meaning. Refusing is better than
+ * silently starting a different executable.
+ */
+export function assertLaunchableThroughCmd(argv: string[]): void {
+  const suspect = argv.find((arg) => /%[^%\s]+%/.test(arg));
+  if (suspect !== undefined) {
+    throw new Error(
+      `Sandbox cannot launch ${JSON.stringify(suspect)}: cmd.exe would expand the ` +
+        `percent-delimited segment. Point --shell at a path without '%' characters.`
+    );
+  }
+}
+
+/**
+ * Windows read grants may not reach what the one-time install's profile grant
+ * excludes, so granting the profile root itself is refused at initialize().
+ * The runtime already grants the profile minus those exclusions; only narrower
+ * read-only paths need a grant of their own.
+ */
+function grantsBeyondProfileRoot(paths: string[]): string[] {
+  const home = path.resolve(os.homedir()).toLowerCase();
+  return paths.filter((entry) => {
+    const resolved = path.resolve(entry).toLowerCase();
+    return resolved !== home && !home.startsWith(resolved + path.sep);
+  });
 }
 
 /**
@@ -103,8 +134,11 @@ export function sandboxConfigFor(
     // The Windows sandbox runs commands as a separate `srt-sandbox` user with
     // write-restricted token, so it does not inherit the caller's read access
     // the way a POSIX child does. Read-only paths have to be granted
-    // explicitly or the documented default (`~` readable) is simply denied.
-    config.filesystem!.allowRead = expandPaths(permissions.filesystem.readOnly);
+    // explicitly — except the profile root, which the install already grants
+    // and which a session grant would be refused for.
+    config.filesystem!.allowRead = grantsBeyondProfileRoot(
+      expandPaths(permissions.filesystem.readOnly)
+    );
   }
 
   return config;
@@ -213,6 +247,12 @@ export class SandboxController {
    * a 0-byte file (a real .claude directory is never touched).
    */
   cleanupSandboxArtifacts(): void {
+    // The stub is a bubblewrap artifact; macOS and Windows never produce it,
+    // and deleting a deliberately empty .claude file there would be wrong.
+    if (this.platform !== "linux") {
+      return;
+    }
+
     const claudePath = path.join(process.cwd(), ".claude");
     try {
       const stat = fs.statSync(claudePath);
@@ -324,6 +364,8 @@ export class SandboxController {
     const command = [shell, ...args].map(quoteShellArg).join(" ");
 
     if (this.platform === "win32") {
+      assertLaunchableThroughCmd([shell, ...args]);
+
       // The inner shell parses this command line, so the two have to agree:
       // quoteShellArg emits cmd.exe rules, and the default inner shell is
       // `cmd.exe /d /s /c`. So cmd launches the user's shell instead of the
