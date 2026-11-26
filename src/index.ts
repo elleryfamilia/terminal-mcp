@@ -349,27 +349,26 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
 
     // Check platform support and dependencies BEFORE showing the modal
     if (!sandboxController.isSupported()) {
-      const platform = sandboxController.getPlatform();
-      if (platform === "win32") {
-        console.error("[terminal-mcp] Error: Sandbox mode is not supported on Windows.");
-      } else {
-        console.error(`[terminal-mcp] Error: Sandbox mode is not supported on platform '${platform}'.`);
-      }
+      console.error(
+        `[terminal-mcp] Error: Sandbox mode is not supported on platform '${sandboxController.getPlatform()}'.`
+      );
       console.error("[terminal-mcp] Please run without the --sandbox flag.");
       process.exit(1);
     }
 
-    // Check Linux-specific dependencies
-    const depCheck = sandboxController.checkLinuxDependencies();
+    // Check the dependencies this platform needs (upstream knows the list)
+    const depCheck = await sandboxController.checkDependencies();
     if (!depCheck.supported) {
       console.error(`[terminal-mcp] Error: Sandbox dependencies not available.`);
       console.error(`[terminal-mcp] Missing: ${depCheck.message}`);
-      console.error("");
-      console.error("To install on Arch Linux:");
-      console.error("  sudo pacman -S bubblewrap socat");
-      console.error("");
-      console.error("To install on Debian/Ubuntu:");
-      console.error("  sudo apt install bubblewrap socat");
+      if (sandboxController.getPlatform() === "linux") {
+        console.error("");
+        console.error("To install on Arch Linux:");
+        console.error("  sudo pacman -S bubblewrap socat");
+        console.error("");
+        console.error("To install on Debian/Ubuntu:");
+        console.error("  sudo apt install bubblewrap socat");
+      }
       console.error("");
       console.error("Or run without the --sandbox flag.");
       process.exit(1);

@@ -12,8 +12,10 @@ export {
 } from "./config.js";
 
 export type {
+  SandboxDependencyCheck,
   SandboxPlatform,
   SandboxStatus,
+  WrappedCommand,
 } from "./controller.js";
 
 export {

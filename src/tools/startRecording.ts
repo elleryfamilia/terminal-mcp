@@ -1,50 +1,53 @@
 import { z } from "zod";
 import { TerminalManager } from "../terminal/index.js";
+import { inputSchemaOf } from "./schema.js";
 
 export const startRecordingSchema = z.object({
-  format: z.enum(['v2']).optional().default('v2'),
-  mode: z.enum(['always', 'on-failure']).optional().default('always'),
-  outputDir: z.string().optional(),
-  idleTimeLimit: z.number().optional().default(2),
-  maxDuration: z.number().optional().default(3600),
-  inactivityTimeout: z.number().optional().default(600),
+  format: z
+    .enum(['v2'])
+    .optional()
+    .default('v2')
+    .describe("Recording format (default: v2, asciicast v2 format)"),
+  mode: z
+    .enum(['always', 'on-failure'])
+    .optional()
+    .default('always')
+    .describe(
+      "Recording mode: always saves the recording, on-failure only saves if session exits with non-zero code (default: always)"
+    ),
+  outputDir: z
+    .string()
+    .optional()
+    .describe(
+      "Directory to save the recording (default: ~/.local/state/terminal-mcp/recordings, or TERMINAL_MCP_RECORD_DIR env var)"
+    ),
+  idleTimeLimit: z
+    .number()
+    .optional()
+    .default(2)
+    .describe(
+      "Max seconds between events in the recording (default: 2). Caps idle time to prevent long pauses during playback."
+    ),
+  maxDuration: z
+    .number()
+    .optional()
+    .default(3600)
+    .describe(
+      "Max recording duration in seconds (default: 3600 = 60 minutes). Recording will auto-stop when this limit is reached."
+    ),
+  inactivityTimeout: z
+    .number()
+    .optional()
+    .default(600)
+    .describe(
+      "Stop recording after N seconds of no terminal output (default: 600 = 10 minutes). Resets on each output event."
+    ),
 });
 
 export const startRecordingTool = {
   name: "startRecording",
   description: "Start recording terminal output to an asciicast v2 file. Returns the recording ID and path where the file will be saved. Only one recording can be active at a time. Recording captures output from all active sessions in the process.",
-  inputSchema: {
-    type: "object" as const,
-    properties: {
-      format: {
-        type: "string",
-        enum: ["v2"],
-        description: "Recording format (default: v2, asciicast v2 format)",
-      },
-      mode: {
-        type: "string",
-        enum: ["always", "on-failure"],
-        description: "Recording mode: always saves the recording, on-failure only saves if session exits with non-zero code (default: always)",
-      },
-      outputDir: {
-        type: "string",
-        description: "Directory to save the recording (default: ~/.local/state/terminal-mcp/recordings, or TERMINAL_MCP_RECORD_DIR env var)",
-      },
-      idleTimeLimit: {
-        type: "number",
-        description: "Max seconds between events in the recording (default: 2). Caps idle time to prevent long pauses during playback.",
-      },
-      maxDuration: {
-        type: "number",
-        description: "Max recording duration in seconds (default: 3600 = 60 minutes). Recording will auto-stop when this limit is reached.",
-      },
-      inactivityTimeout: {
-        type: "number",
-        description: "Stop recording after N seconds of no terminal output (default: 600 = 10 minutes). Resets on each output event.",
-      },
-    },
-    required: [],
-  },
+  inputSchema: inputSchemaOf(startRecordingSchema),
 };
 
 export function handleStartRecording(

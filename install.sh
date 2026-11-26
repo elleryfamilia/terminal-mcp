@@ -29,12 +29,13 @@ error() {
 # Check for Node.js
 check_node() {
     if ! command -v node &> /dev/null; then
-        error "Node.js is not installed. Please install Node.js 18+ from https://nodejs.org/"
+        error "Node.js is not installed. Please install Node.js 22.12+ from https://nodejs.org/"
     fi
 
-    NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
-    if [ "$NODE_VERSION" -lt 18 ]; then
-        error "Node.js 18+ is required. Current version: $(node -v)"
+    NODE_MAJOR=$(node -v | sed 's/^v//' | cut -d. -f1)
+    NODE_MINOR=$(node -v | sed 's/^v//' | cut -d. -f2)
+    if [ "$NODE_MAJOR" -lt 22 ] || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -lt 12 ]; }; then
+        error "Node.js 22.12+ is required. Current version: $(node -v)"
     fi
 
     info "Node.js $(node -v) detected"

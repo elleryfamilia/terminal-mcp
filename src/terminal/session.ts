@@ -200,11 +200,22 @@ ${bannerCmd}
     // Determine spawn command - may be wrapped by sandbox
     let spawnCmd = shell;
     let spawnArgs = args;
+    let spawnEnv = { ...process.env, ...env } as Record<string, string>;
 
     if (options.sandboxController?.isActive()) {
-      const wrapped = await options.sandboxController.wrapShellCommand(shell, args);
+      const wrapped = await options.sandboxController.wrapShellCommand(
+        shell,
+        args,
+        options.cwd
+      );
       spawnCmd = wrapped.cmd;
       spawnArgs = wrapped.args;
+      // The sandbox runtime builds the environment a sandboxed command gets
+      // (proxy settings, git config on Windows); our prompt overrides still
+      // have to survive on top of it.
+      if (wrapped.env) {
+        spawnEnv = { ...wrapped.env, ...env } as Record<string, string>;
+      }
 
       if (process.env.DEBUG_SANDBOX) {
         console.error("[sandbox-debug] Spawn command:", spawnCmd);
@@ -219,7 +230,7 @@ ${bannerCmd}
       cols,
       rows,
       cwd: options.cwd ?? process.cwd(),
-      env: { ...process.env, ...env } as Record<string, string>,
+      env: spawnEnv,
     });
 
     // Pipe PTY output to terminal emulator and listeners

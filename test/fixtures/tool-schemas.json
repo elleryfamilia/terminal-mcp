@@ -1,0 +1,161 @@
+{
+  "type": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "The text to type into the terminal"
+      },
+      "sessionId": {
+        "description": "Target session ID. Omit to target the default session.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "sendKey": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "description": "The key to send (e.g., 'Enter', 'Tab', 'Ctrl+C', 'ArrowUp', 'Escape')"
+      },
+      "sessionId": {
+        "description": "Target session ID. Omit to target the default session.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "key"
+    ]
+  },
+  "getContent": {
+    "type": "object",
+    "properties": {
+      "visibleOnly": {
+        "default": false,
+        "description": "If true, only return the visible viewport content. If false (default), include scrollback buffer.",
+        "type": "boolean"
+      },
+      "sessionId": {
+        "description": "Target session ID. Omit to target the default session.",
+        "type": "string"
+      }
+    },
+    "required": []
+  },
+  "takeScreenshot": {
+    "type": "object",
+    "properties": {
+      "format": {
+        "description": "Output format: 'text' (default) returns plain JSON, 'ansi' returns text with ANSI color codes, 'png' returns a color screenshot image",
+        "type": "string",
+        "enum": [
+          "text",
+          "ansi",
+          "png"
+        ]
+      },
+      "sessionId": {
+        "description": "Target session ID. Omit to target the default session.",
+        "type": "string"
+      }
+    },
+    "required": []
+  },
+  "startRecording": {
+    "type": "object",
+    "properties": {
+      "format": {
+        "default": "v2",
+        "description": "Recording format (default: v2, asciicast v2 format)",
+        "type": "string",
+        "enum": [
+          "v2"
+        ]
+      },
+      "mode": {
+        "default": "always",
+        "description": "Recording mode: always saves the recording, on-failure only saves if session exits with non-zero code (default: always)",
+        "type": "string",
+        "enum": [
+          "always",
+          "on-failure"
+        ]
+      },
+      "outputDir": {
+        "description": "Directory to save the recording (default: ~/.local/state/terminal-mcp/recordings, or TERMINAL_MCP_RECORD_DIR env var)",
+        "type": "string"
+      },
+      "idleTimeLimit": {
+        "default": 2,
+        "description": "Max seconds between events in the recording (default: 2). Caps idle time to prevent long pauses during playback.",
+        "type": "number"
+      },
+      "maxDuration": {
+        "default": 3600,
+        "description": "Max recording duration in seconds (default: 3600 = 60 minutes). Recording will auto-stop when this limit is reached.",
+        "type": "number"
+      },
+      "inactivityTimeout": {
+        "default": 600,
+        "description": "Stop recording after N seconds of no terminal output (default: 600 = 10 minutes). Resets on each output event.",
+        "type": "number"
+      }
+    },
+    "required": []
+  },
+  "stopRecording": {
+    "type": "object",
+    "properties": {
+      "recordingId": {
+        "type": "string",
+        "description": "The recording ID returned by startRecording"
+      }
+    },
+    "required": [
+      "recordingId"
+    ]
+  },
+  "createSession": {
+    "type": "object",
+    "properties": {
+      "shell": {
+        "description": "Shell to use for this session (default: $SHELL or /bin/bash)",
+        "type": "string"
+      },
+      "cols": {
+        "description": "Terminal width in columns (default: 120)",
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      },
+      "rows": {
+        "description": "Terminal height in rows (default: 40)",
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": []
+  },
+  "listSessions": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "destroySession": {
+    "type": "object",
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "description": "ID of the session to destroy"
+      }
+    },
+    "required": [
+      "sessionId"
+    ]
+  }
+}

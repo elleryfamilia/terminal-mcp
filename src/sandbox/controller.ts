@@ -1,5 +1,6 @@
 import {
   SandboxManager,
+  type SandboxInitializeOptions,
   type SandboxRuntimeConfig,
 } from "@anthropic-ai/sandbox-runtime";
 import { SandboxPermissions, expandPath } from "./config.js";
@@ -12,6 +13,32 @@ export interface SandboxStatus {
   enabled: boolean;
   platform: SandboxPlatform;
   reason?: string;
+}
+
+export interface SandboxDependencyCheck {
+  supported: boolean;
+  message?: string;
+}
+
+/**
+ * A shell invocation ready to be spawned as-is (no shell in between).
+ */
+export interface WrappedCommand {
+  cmd: string;
+  args: string[];
+  env?: NodeJS.ProcessEnv;
+}
+
+/**
+ * Quote one argument so it survives being re-parsed as a command line.
+ * POSIX gets single quotes; Windows gets the double-quote rules that cmd.exe
+ * and CommandLineToArgvW agree on.
+ */
+export function quoteShellArg(arg: string): string {
+  if (process.platform === "win32") {
+    return /^[A-Za-z0-9_.:\/\\-]+$/.test(arg) ? arg : `"${arg.replace(/"/g, '""')}"`;
+  }
+  return `'${arg.replace(/'/g, `'\\''`)}'`;
 }
 
 /**
@@ -48,26 +75,33 @@ export class SandboxController {
   }
 
   /**
-   * Check if Linux dependencies are available
+   * Check the dependencies the sandbox needs on this platform.
+   *
+   * Upstream owns the list per platform (bubblewrap + socat + ripgrep on Linux,
+   * the srt-win backend and its network filters on Windows, nothing extra on
+   * macOS). The async form also resolves helpers off the event loop, and on
+   * Windows it is the only form that can probe the backend at all.
    */
-  checkLinuxDependencies(): { supported: boolean; message?: string } {
-    if (this.platform !== "linux") {
-      return { supported: true };
-    }
-    const depCheck = SandboxManager.checkDependencies();
+  async checkDependencies(): Promise<SandboxDependencyCheck> {
+    const depCheck = await SandboxManager.checkDependenciesAsync();
     const supported = depCheck.errors.length === 0;
-    const message = supported ? undefined : depCheck.errors.join("; ");
-    return { supported, message };
+    return {
+      supported,
+      message: supported ? undefined : depCheck.errors.join("; "),
+    };
   }
 
   /**
    * Clean up sandbox artifacts left by previous runs.
    *
-   * Workaround for sandbox-runtime bug: when sandbox binds /dev/null to .claude,
-   * it leaves a 0-byte file artifact. On the next run, sandbox-runtime tries to
-   * create .claude/commands inside this file, which fails with "Not a directory".
+   * sandbox-runtime keeps /dev/null stubs on the host for deny paths that do
+   * not exist, and removes them itself from reset() (which cleanup() calls, so
+   * a normal shutdown is covered). A session killed with SIGKILL never gets
+   * there, and on the next run a stub sitting where a directory is expected
+   * fails bubblewrap with "Can't mkdir parents for ...: Not a directory".
    *
-   * This removes the .claude artifact if it's a 0-byte file (not a real directory).
+   * So this stays as a safety net: it removes such a stub, and only when it is
+   * a 0-byte file (a real .claude directory is never touched).
    */
   cleanupSandboxArtifacts(): void {
     const claudePath = path.join(process.cwd(), ".claude");
@@ -143,32 +177,27 @@ export class SandboxController {
       return {
         enabled: false,
         platform: this.platform,
-        reason:
-          this.platform === "win32"
-            ? "Sandbox not available on Windows"
-            : `Platform ${this.platform} is not supported`,
+        reason: `Platform ${this.platform} is not supported`,
       };
     }
 
-    // Check Linux dependencies
-    if (this.platform === "linux") {
-      const depCheck = this.checkLinuxDependencies();
-      if (!depCheck.supported) {
-        return {
-          enabled: false,
-          platform: this.platform,
-          reason: depCheck.message ?? "Linux sandbox dependencies not available",
-        };
-      }
+    // Check the dependencies this platform needs
+    const depCheck = await this.checkDependencies();
+    if (!depCheck.supported) {
+      return {
+        enabled: false,
+        platform: this.platform,
+        reason: depCheck.message ?? "Sandbox dependencies not available",
+      };
     }
 
     // Clean up any sandbox artifacts from previous runs
-    // This works around a sandbox-runtime bug where .claude becomes a 0-byte file
+    // (see cleanupSandboxArtifacts: only a no-op unless a stub survived a kill)
     this.cleanupSandboxArtifacts();
 
     try {
       const config = this.toSandboxConfig(permissions);
-      await SandboxManager.initialize(config, undefined, true);
+      await SandboxManager.initialize(config, undefined, true, this.initializeOptions());
 
       this.initialized = true;
       this.permissions = permissions;
@@ -188,37 +217,68 @@ export class SandboxController {
   }
 
   /**
-   * Wrap a shell command with sandbox restrictions
-   * Returns the wrapped command string to execute
+   * Options sandbox-runtime only understands on Windows.
+   */
+  private initializeOptions(): SandboxInitializeOptions | undefined {
+    if (this.platform !== "win32") {
+      return undefined;
+    }
+    return {
+      // Narrowing an older profile read grant can take minutes; without this
+      // the first Windows run looks hung.
+      onWindowsProfileGrantProgress: (line: string) => {
+        console.error(`[terminal-mcp] ${line}`);
+      },
+    };
+  }
+
+  /**
+   * Wrap a shell invocation with sandbox restrictions.
+   *
+   * Always returns argv, so callers spawn without a shell in between.
+   *
+   * macOS/Linux have a string wrapper that is run through `/bin/sh -c` — the
+   * long-standing path here. Windows has no such thing: it wraps to an argv
+   * array that must be spawned directly (that is the security boundary, since
+   * a shell in between would re-expand the command), so it uses the argv form.
    */
   async wrapShellCommand(
     shell: string,
-    args: string[]
-  ): Promise<{ cmd: string; args: string[] }> {
+    args: string[],
+    cwd?: string
+  ): Promise<WrappedCommand> {
     if (!this.initialized) {
       throw new Error("Sandbox not initialized");
     }
 
-    // Build the full command string
-    const fullCommand = [shell, ...args].join(" ");
+    // The shell and its own flags are re-parsed from a command line, so quote
+    // them: paths with spaces would otherwise split.
+    const command = [shell, ...args].map(quoteShellArg).join(" ");
 
-    // Wrap with sandbox
-    const sandboxedCommand = await SandboxManager.wrapWithSandbox(
-      fullCommand,
-      shell
-    );
+    if (this.platform === "win32") {
+      const { argv, env } = await SandboxManager.wrapWithSandboxArgv(
+        command,
+        shell,
+        undefined,
+        undefined,
+        cwd
+      );
 
-    // Debug: log the generated command
+      if (process.env.DEBUG_SANDBOX) {
+        console.error("[sandbox-debug] Generated argv:", argv.join(" "));
+      }
+
+      const [cmd, ...rest] = argv;
+      return { cmd, args: rest, env: { ...env } };
+    }
+
+    const sandboxedCommand = await SandboxManager.wrapWithSandbox(command, shell);
+
     if (process.env.DEBUG_SANDBOX) {
       console.error("[sandbox-debug] Generated command:", sandboxedCommand);
     }
 
-    // The sandboxed command should be executed via shell
-    // Return it as a shell -c command
-    return {
-      cmd: "/bin/sh",
-      args: ["-c", sandboxedCommand],
-    };
+    return { cmd: "/bin/sh", args: ["-c", sandboxedCommand] };
   }
 
   /**

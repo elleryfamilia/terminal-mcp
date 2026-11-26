@@ -132,6 +132,11 @@ export const tool = { name, description, inputSchema };
 export function handleTool(manager, args) { ... }
 ```
 
+The `inputSchema` is not written by hand: `inputSchemaOf(toolSchema)` (in
+`src/tools/schema.ts`) derives it from the same Zod schema the handler parses
+with, so the schema a client sees cannot drift from the one that runs.
+`test/tool-schemas.test.mjs` pins the generated result.
+
 ### Tool Registry (`src/tools/index.ts`)
 
 Central registration point:
@@ -258,6 +263,7 @@ npm run dev      # Run with tsx (development)
 // src/tools/newTool.ts
 import { z } from "zod";
 import { TerminalManager } from "../terminal/index.js";
+import { inputSchemaOf } from "./schema.js";
 
 export const newToolSchema = z.object({
   param: z.string().describe("Parameter description"),
@@ -266,13 +272,7 @@ export const newToolSchema = z.object({
 export const newTool = {
   name: "newTool",
   description: "What this tool does",
-  inputSchema: {
-    type: "object" as const,
-    properties: {
-      param: { type: "string", description: "..." },
-    },
-    required: ["param"],
-  },
+  inputSchema: inputSchemaOf(newToolSchema),
 };
 
 export function handleNewTool(manager: TerminalManager, args: unknown) {

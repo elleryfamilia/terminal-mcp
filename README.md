@@ -368,8 +368,8 @@ Example config file:
 
 Platform support:
 - **macOS**: Full support via sandbox-exec (Seatbelt)
-- **Linux**: Full support via bubblewrap (requires `bwrap` installed)
-- **Windows**: Graceful fallback (runs without sandbox)
+- **Linux**: Full support via bubblewrap (requires `bwrap` and `socat` installed)
+- **Windows**: Supported via sandbox-runtime's `srt-win` backend (needs its one-time setup)
 
 See [Sandbox Documentation](./docs/sandbox.md) for detailed configuration options.
 
@@ -504,7 +504,7 @@ See the [docs](./docs/) folder for detailed documentation:
 
 ## Requirements
 
-- Node.js 18.0.0 or later
+- Node.js 22.12.0 or later (required by the sandbox runtime dependency)
 - Windows 10 version 1809 or later (for ConPTY support)
 
 ## License

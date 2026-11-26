@@ -1,16 +1,13 @@
 import { z } from "zod";
 import { TerminalManager } from "../terminal/index.js";
+import { inputSchemaOf } from "./schema.js";
 
 export const listSessionsSchema = z.object({});
 
 export const listSessionsTool = {
   name: "listSessions",
   description: "List all active terminal sessions, including the default session. Returns session metadata and the configured limits.",
-  inputSchema: {
-    type: "object" as const,
-    properties: {},
-    required: [],
-  },
+  inputSchema: inputSchemaOf(listSessionsSchema),
 };
 
 export function handleListSessions(

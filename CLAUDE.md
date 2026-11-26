@@ -41,6 +41,7 @@ Terminal MCP is a headless terminal emulator exposed via Model Context Protocol 
 **Tool Layer** (`src/tools/`):
 - Each tool has: Zod schema, tool definition object, handler function
 - Pattern: `export const fooTool = {...}` + `export function handleFoo(manager, args)`
+- `inputSchema` is derived, never hand-written: `inputSchemaOf(fooSchema)` from `src/tools/schema.ts` generates it from the Zod schema, so the wire schema is the schema that validates. `test/tool-schemas.test.mjs` pins the output.
 - Single-session tools: `type`, `sendKey`, `getContent`, `takeScreenshot` (formats: `text`, `ansi`, `png`). All accept an optional `sessionId` to target a specific session; omit for the default.
 - Recording tools: `startRecording`, `stopRecording`. Recording is process-wide — when active, it captures output from all sessions in the manager.
 - Multi-session tools: `createSession`, `listSessions`, `destroySession`. The default session cannot be destroyed.

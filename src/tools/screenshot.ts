@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TerminalManager } from "../terminal/index.js";
 import { renderTerminalToPng } from "../utils/render.js";
+import { inputSchemaOf } from "./schema.js";
 
 export const screenshotSchema = z.object({
   format: z.enum(["text", "ansi", "png"]).optional().describe(
@@ -15,22 +16,7 @@ export const screenshotTool = {
   name: "takeScreenshot",
   description:
     "Capture terminal state. Format 'text' (default) returns plain JSON with content, cursor, dimensions. Format 'ansi' returns JSON with ANSI color escape codes preserved in the content field. Format 'png' returns a color screenshot image.",
-  inputSchema: {
-    type: "object" as const,
-    properties: {
-      format: {
-        type: "string",
-        enum: ["text", "ansi", "png"],
-        description:
-          "Output format: 'text' (default) plain JSON, 'ansi' for colored text with ANSI codes, 'png' for color screenshot image",
-      },
-      sessionId: {
-        type: "string",
-        description: "Target session ID. Omit to target the default session.",
-      },
-    },
-    required: [],
-  },
+  inputSchema: inputSchemaOf(screenshotSchema),
 };
 
 export function handleScreenshot(

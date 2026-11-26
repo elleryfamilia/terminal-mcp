@@ -7,8 +7,9 @@ Terminal MCP includes an opt-in sandbox mode that restricts filesystem and netwo
 Sandbox mode uses [Anthropic's sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime) library to enforce restrictions at the OS level:
 
 - **macOS**: Uses `sandbox-exec` (Seatbelt)
-- **Linux**: Uses `bubblewrap` (requires installation)
-- **Windows**: Not supported (graceful fallback to unsandboxed mode)
+- **Linux**: Uses `bubblewrap` and `socat` (both require installation)
+- **Windows**: Uses sandbox-runtime's `srt-win` backend (requires its one-time
+  setup; `--sandbox` reports anything missing instead of running unconfined)
 
 ## Quick Start
 
@@ -182,23 +183,26 @@ When using `--sandbox` without customization, these defaults are applied:
 | Platform | Support | Mechanism |
 |----------|---------|-----------|
 | macOS | Full | sandbox-exec (Seatbelt) |
-| Linux | Full | bubblewrap (requires `bwrap` installed) |
-| Windows | Fallback | Warning message, runs without sandbox |
+| Linux | Full | bubblewrap (requires `bwrap` and `socat` installed) |
+| Windows | Supported | srt-win backend (sandbox user + network filters) |
 
 ### Linux Setup
 
-On Linux, install bubblewrap:
+On Linux, install bubblewrap and socat (socat relays the sandbox's network
+bridge; without it the dependency check fails and the sandbox stays off):
 
 ```bash
 # Debian/Ubuntu
-sudo apt install bubblewrap
+sudo apt install bubblewrap socat
 
 # Fedora
-sudo dnf install bubblewrap
+sudo dnf install bubblewrap socat
 
 # Arch
-sudo pacman -S bubblewrap
+sudo pacman -S bubblewrap socat
 ```
+
+`ripgrep` (`rg`) is also used to expand glob deny-patterns on Linux.
 
 ## Known Limitations
 
@@ -295,13 +299,23 @@ Then `~/.ssh` will be blocked even though `~` is allowed.
 
 ## Troubleshooting
 
-### "Sandbox not available on Windows"
+### "Sandbox dependencies not available" on Windows
 
-Windows doesn't support the sandbox mechanism. The terminal will run without restrictions.
+The `srt-win` backend needs the runtime's one-time setup (a sandbox user and
+its network filters). The error names whichever part is missing; re-running
+`--sandbox` after installing it should get past the check.
+
+To sandbox on Windows today without that setup, run inside WSL and use the
+Linux path instead.
 
 ### "Linux sandbox requires bubblewrap"
 
 Install bubblewrap (`bwrap`) using your package manager. See [Linux Setup](#linux-setup).
+
+### "socat not installed"
+
+Install `socat` (`sudo apt install socat`). It is needed for the network bridge
+that gives the sandboxed process proxy access.
 
 ### "Operation not permitted" errors
 

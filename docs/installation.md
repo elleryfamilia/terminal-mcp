@@ -6,7 +6,9 @@ This guide covers how to install and set up Terminal MCP.
 
 ### Node.js
 
-Terminal MCP requires Node.js 18.0.0 or later. Check your version:
+Terminal MCP requires Node.js 22.12.0 or later (the bundled sandbox runtime
+requires it, and it is loaded at startup even when `--sandbox` is off). Check
+your version:
 
 ```bash
 node --version

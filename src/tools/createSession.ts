@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TerminalManager } from "../terminal/index.js";
+import { inputSchemaOf } from "./schema.js";
 
 export const createSessionSchema = z.object({
   shell: z.string().optional().describe("Shell to use for this session (default: $SHELL or /bin/bash)"),
@@ -10,24 +11,7 @@ export const createSessionSchema = z.object({
 export const createSessionTool = {
   name: "createSession",
   description: "Create a new terminal session and return its metadata. Use the returned sessionId in subsequent type/sendKey/getContent/takeScreenshot calls to address this session. The default session created on first use is separate from sessions created here.",
-  inputSchema: {
-    type: "object" as const,
-    properties: {
-      shell: {
-        type: "string",
-        description: "Shell to use for this session (default: $SHELL or /bin/bash)",
-      },
-      cols: {
-        type: "number",
-        description: "Terminal width in columns (default: 120)",
-      },
-      rows: {
-        type: "number",
-        description: "Terminal height in rows (default: 40)",
-      },
-    },
-    required: [],
-  },
+  inputSchema: inputSchemaOf(createSessionSchema),
 };
 
 export async function handleCreateSession(

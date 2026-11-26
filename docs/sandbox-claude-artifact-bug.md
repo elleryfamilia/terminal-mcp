@@ -108,6 +108,15 @@ npm run dev -- --sandbox
 
 ## Status
 
-- **Workaround**: Implemented in terminal-mcp (commit 7d462ac)
-- **Upstream fix**: Pending - needs to be addressed in sandbox-runtime
+- **Upstream fix**: `sandbox-runtime` 0.0.83 (the version this project now
+  depends on) no longer leaves the artifact behind on a normal exit. It decides
+  the mount-point kind before bwrap runs — a directory when a deny path sits
+  beneath, so `.claude` no longer becomes an unreadable file — and `reset()`
+  removes any mount points it created.
+- **Workaround**: Still present (`SandboxController.cleanupSandboxArtifacts`,
+  originally commit 7d462ac) as a safety net, because `reset()` never runs if
+  the process is killed with SIGKILL. It only unlinks a 0-byte `.claude` file.
 - **Affected platforms**: Linux only (uses bwrap)
+
+This document is history: the reproduction steps below describe the pre-0.0.83
+behaviour and may not fail on current versions.

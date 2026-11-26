@@ -16,7 +16,7 @@ Terminal-mcp now supports Windows with cmd.exe as the default shell. The followi
 
 ```json
 // package.json
-"node-pty": "^1.2.0-beta.8"
+"node-pty": "^1.2.0-beta.18"
 ```
 
 This version includes prebuilt binaries for all platforms (Windows, macOS, Linux) on both x64 and arm64 architectures.
@@ -79,6 +79,23 @@ if (isWindows && !bannerShown && data.includes("⚡")) {
 session.write("\r");  // Not "\n"
 ```
 
+### 7. Sandbox Mode
+
+**Issue:** `--sandbox` used to be refused on Windows, and the wrapper ended in
+`/bin/sh -c <command>`, which does not exist there.
+
+**Solution:** `SandboxController` now asks `sandbox-runtime` for the
+requirements of the current platform (`checkDependenciesAsync`) instead of
+assuming Linux, and wraps to an **argv array** on Windows via
+`wrapWithSandboxArgv`, which must be spawned without a shell — a shell in
+between would re-expand the command and defeat the sandbox. macOS/Linux keep
+the string form run through `/bin/sh -c`.
+
+On Windows the `srt-win` backend also needs its one-time setup (sandbox user and
+network filters). Until that is done, `--sandbox` prints what is missing and
+exits rather than starting an unconfined shell — it no longer silently falls
+back to an unsandboxed session.
+
 ## Platform-Specific Code Paths
 
 ### Shell Prompt Setup (`src/terminal/session.ts`)
@@ -108,4 +125,6 @@ When testing Windows support, verify:
 - [ ] MCP tools work: `takeScreenshot`, `type`, `sendKey`, `getContent`
 - [ ] Special keys work (Enter, Ctrl+C, arrows, etc.)
 - [ ] Terminal resize works
+- [ ] `--sandbox` reports missing `srt-win` prerequisites (rather than claiming
+      Windows is unsupported), and starts a sandboxed shell once they are set up
 - [ ] Clean exit on shell close

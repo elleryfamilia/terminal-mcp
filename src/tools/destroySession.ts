@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TerminalManager } from "../terminal/index.js";
+import { inputSchemaOf } from "./schema.js";
 
 export const destroySessionSchema = z.object({
   sessionId: z.string().describe("ID of the session to destroy"),
@@ -8,16 +9,7 @@ export const destroySessionSchema = z.object({
 export const destroySessionTool = {
   name: "destroySession",
   description: "Destroy a terminal session by ID. The default session cannot be destroyed.",
-  inputSchema: {
-    type: "object" as const,
-    properties: {
-      sessionId: {
-        type: "string",
-        description: "ID of the session to destroy",
-      },
-    },
-    required: ["sessionId"],
-  },
+  inputSchema: inputSchemaOf(destroySessionSchema),
 };
 
 export function handleDestroySession(

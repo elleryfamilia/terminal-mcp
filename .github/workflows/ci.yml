@@ -5,13 +5,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: [18, 20, 22]
+        node-version: [22, 24]
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -34,6 +35,32 @@ jobs:
       - name: Verify CLI runs
         run: node dist/index.js --help
 
+  unit:
+    # Portable tests: no PTY, no shell, no sandbox needed. This is the only job
+    # that exercises Windows, where the sandbox and quoting branches live.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [22, 24]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
   test:
     # The shutdown tests spawn real PTYs and drive the built server over stdio.
     # Windows is excluded: its PTY layer and default shell make the terminal
@@ -41,7 +68,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        node-version: [20, 22]
+        node-version: [22, 24]
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
