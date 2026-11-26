@@ -361,13 +361,10 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
     if (!depCheck.supported) {
       console.error(`[terminal-mcp] Error: Sandbox dependencies not available.`);
       console.error(`[terminal-mcp] Missing: ${depCheck.message}`);
-      if (sandboxController.getPlatform() === "linux") {
+      const instructions = sandboxController.setupInstructions();
+      if (instructions.length > 0) {
         console.error("");
-        console.error("To install on Arch Linux:");
-        console.error("  sudo pacman -S bubblewrap socat");
-        console.error("");
-        console.error("To install on Debian/Ubuntu:");
-        console.error("  sudo apt install bubblewrap socat");
+        for (const line of instructions) console.error(line);
       }
       console.error("");
       console.error("Or run without the --sandbox flag.");

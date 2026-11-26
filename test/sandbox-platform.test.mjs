@@ -20,6 +20,20 @@ test("Windows is offered the sandbox instead of being refused", () => {
   assert.equal(new SandboxController().isSupported(), true);
 });
 
+test("the packaged srt-win binary is configured on Windows", { timeout: 120_000 }, async (t) => {
+  // Regression: srt-win is never discovered on its own, so without
+  // windows.srtWin.path the check fails with "no srt-win path configured" and
+  // the sandbox can never start. Whatever is missing on this host, it must not
+  // be that.
+  if (!isWindows) return;
+  const check = await new SandboxController().checkDependencies();
+  t.diagnostic(`win32 after wiring the vendored binary: ${check.message ?? "supported"}`);
+  assert.ok(
+    !check.message?.includes("no srt-win path configured"),
+    `windows.srtWin.path should point at the packaged binary, got: ${check.message}`
+  );
+});
+
 test("dependency check resolves rather than throwing", { timeout: 120_000 }, async (t) => {
   const check = await new SandboxController().checkDependencies();
   // Recorded as a diagnostic so CI shows what each platform actually reports
@@ -53,6 +67,18 @@ test(
     );
   }
 );
+
+test("failed dependency checks come with instructions for this platform", () => {
+  const instructions = new SandboxController().setupInstructions().join("\n");
+
+  if (process.platform === "linux") {
+    assert.match(instructions, /bubblewrap/);
+    assert.match(instructions, /socat/);
+  } else if (isWindows) {
+    assert.match(instructions, /srt-win/);
+    assert.match(instructions, /install/i);
+  }
+});
 
 test("wrapping without initializing is refused", async () => {
   await assert.rejects(

@@ -1,5 +1,7 @@
 import {
   SandboxManager,
+  VENDORED_SRT_WIN_EXE,
+  windowsInstallInstructions,
   type SandboxInitializeOptions,
   type SandboxRuntimeConfig,
 } from "@anthropic-ai/sandbox-runtime";
@@ -92,6 +94,30 @@ export class SandboxController {
   }
 
   /**
+   * How to satisfy a failed {@link checkDependencies} on this platform, one
+   * entry per line of output. Kept beside the check so the two cannot
+   * disagree about what is actually missing.
+   */
+  setupInstructions(): string[] {
+    switch (this.platform) {
+      case "linux":
+        return [
+          "To install on Arch Linux:",
+          "  sudo pacman -S bubblewrap socat",
+          "",
+          "To install on Debian/Ubuntu:",
+          "  sudo apt install bubblewrap socat",
+        ];
+      case "win32":
+        // sandbox-runtime refuses to initialize until this one-time install
+        // has run, so print the command it wants rather than a bare error.
+        return windowsInstallInstructions({}).split("\n");
+      default:
+        return [];
+    }
+  }
+
+  /**
    * Clean up sandbox artifacts left by previous runs.
    *
    * sandbox-runtime keeps /dev/null stubs on the host for deny paths that do
@@ -163,6 +189,13 @@ export class SandboxController {
       // Enable PTY support since we're spawning a shell
       allowPty: true,
     };
+
+    if (this.platform === "win32") {
+      // srt-win is not discovered on its own: the runtime only reads
+      // windows.srtWin.path, and without it the dependency check fails with
+      // "no srt-win path configured". Name the binary shipped in the package.
+      config.windows = { srtWin: { path: VENDORED_SRT_WIN_EXE } };
+    }
 
     return config;
   }
