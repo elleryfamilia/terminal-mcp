@@ -50,7 +50,7 @@ Terminal MCP has three operating modes, selected by the `--headless` flag and TT
 |------|-----------|-------------|
 | **Headless** | `--headless` flag | Self-contained: spawns embedded PTY, serves MCP over stdio. No socket or TTY needed. Recommended for MCP client configs. |
 | **Interactive** | stdin is TTY | User gets a shell with PTY I/O. Exposes a Unix socket for AI tool access. |
-| **Client** | stdin is not TTY | Connects to an interactive session's socket, proxies MCP tools over stdio. |
+| **Client** | stdin is not TTY | Connects lazily to an interactive session's socket (on the first tool call, not at startup), proxies MCP tools over stdio. No interactive session yet: a tool call returns a friendly error naming `terminal-mcp` as the command to start one, and no restart is needed once one appears. A session dropping mid-call rejects that call with a "session ended" error rather than replaying it; the next tool call reconnects automatically. |
 
 **Headless mode** (single process):
 ```
@@ -97,8 +97,9 @@ Manages terminal session lifecycle:
 - Resource cleanup
 
 Design decisions:
-- Single session for simplicity
-- Session created on demand
+- The default session is initialized eagerly at startup in headless mode (`server.ts` calls `manager.initSession()` before connecting the MCP transport); the manager itself supports lazy, on-demand creation as a general capability
+- Additional named sessions are created on request via `createSession` (headless mode) and tracked alongside the default one
+- Idle non-default sessions are garbage-collected (`--session-idle-timeout`, default 600s); the default session cannot be destroyed
 - Automatic recreation if disposed
 
 ### Terminal Session (`src/terminal/session.ts`)
@@ -320,7 +321,6 @@ const proc = spawn('node', ['dist/index.js']);
 
 ### Planned Features
 
-- **Multiple Sessions**: Named sessions for parallel terminals
 - **Dynamic Resize**: Tool to resize terminal dimensions
 - **Environment Config**: CLI options for environment variables
 - **Session Persistence**: Save/restore session state

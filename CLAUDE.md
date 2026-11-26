@@ -28,8 +28,8 @@ Terminal MCP is a headless terminal emulator exposed via Model Context Protocol 
    - `src/index.ts` → `startInteractiveMode()` → creates `TerminalManager` + `createToolProxyServer()`
 
 3. **MCP Client Mode** (stdin is not TTY, no `--headless`): Claude Code spawns `terminal-mcp` as MCP server
-   - Connects to the Unix socket from interactive mode
-   - Serves MCP protocol over stdio to Claude Code
+   - Serves MCP over stdio immediately; connects to the Unix socket lazily, on the first tool call, not at startup
+   - No interactive session yet, or one that drops mid-call: returns a friendly tool error instead of exiting; the next call reconnects automatically, no restart needed
    - `src/client.ts` → `startMcpClientMode()` → proxies tool calls to socket
 
 ### Key Components

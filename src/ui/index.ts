@@ -93,10 +93,6 @@ ${YELLOW_COLOR}╰${horizontalLine}╯${RESET}
 ${WHITE_COLOR}MCP Configuration (add to your MCP client):${RESET}
 
 ${mcpConfig}
-
-${YELLOW_COLOR}╭${horizontalLine}╮
-│${WHITE_COLOR}  Restart your MCP client to connect.${" ".repeat(boxWidth - 38)}${YELLOW_COLOR}│
-╰${horizontalLine}╯${RESET}
 `;
 }
 

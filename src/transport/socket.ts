@@ -4,6 +4,7 @@ import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import { TerminalManager } from "../terminal/index.js";
 import { getStats } from "../utils/stats.js";
+import { LineDecoder } from "../utils/line-decoder.js";
 
 // Tool handlers
 import { handleType } from "../tools/type.js";
@@ -31,7 +32,7 @@ interface SocketResponse {
  */
 export class SocketTransport implements Transport {
   private socket: Socket;
-  private buffer = "";
+  private decoder = new LineDecoder();
 
   onmessage?: (message: JSONRPCMessage) => void;
   onerror?: (error: Error) => void;
@@ -41,8 +42,7 @@ export class SocketTransport implements Transport {
     this.socket = socket;
 
     this.socket.on("data", (data) => {
-      this.buffer += data.toString();
-      this.processBuffer();
+      this.processChunk(data);
     });
 
     this.socket.on("error", (error) => {
@@ -54,11 +54,8 @@ export class SocketTransport implements Transport {
     });
   }
 
-  private processBuffer(): void {
-    const lines = this.buffer.split("\n");
-    this.buffer = lines.pop() || "";
-
-    for (const line of lines) {
+  private processChunk(data: Buffer): void {
+    for (const line of this.decoder.push(data)) {
       if (line.trim()) {
         try {
           const message = JSON.parse(line) as JSONRPCMessage;
@@ -132,14 +129,10 @@ export function createToolProxyServer(
   }
 
   const server = new NetServer((socket) => {
-    let buffer = "";
+    const decoder = new LineDecoder();
 
     socket.on("data", async (data) => {
-      buffer += data.toString();
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
+      for (const line of decoder.push(data)) {
         if (line.trim()) {
           try {
             const request = JSON.parse(line) as SocketRequest;
