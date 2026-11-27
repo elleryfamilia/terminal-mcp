@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  # Lets a failed release be retried from main without moving the tag.
+  workflow_dispatch:
 
 # Trusted publishing: npm exchanges this OIDC token for a short-lived
 # credential, so no long-lived NPM_TOKEN secret is needed.
@@ -46,6 +48,8 @@ jobs:
         run: npm stage publish --access public
 
   release:
+    # Manual runs only stage the package; releases are created from tag pushes.
+    if: github.ref_type == 'tag'
     needs: stage
     runs-on: ubuntu-latest
 
